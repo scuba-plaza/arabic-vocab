@@ -25,7 +25,7 @@ Example sentence
 - Every other word should be common: prefer words from the vocabulary list you are given.
 - No personal names, no religious texts, nothing dated.
 - Vary sentence patterns and topics across the cards in one answer.
-- Avoid sentences a reader could vowel two ways without context, such as a first-person past verb that could also be read as "she did" or "you did".
+- Avoid sentences a reader could vowel two ways without the marks. A past-tense verb ending in ت reads as "I", "you" or "she" did (ذَهَبْتُ، ذَهَبْتَ، ذَهَبَتْ): prefer a third-person masculine subject, or add the pronoun that settles it.
 - Wrap the target word, exactly as it appears in the sentence and including any attached pronoun or clitic, in <b>…</b>. Use <b> only once.
 - "example_en" is a natural English translation of that sentence.
 
