@@ -8,8 +8,6 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/scuba-plaza/arabic-tts/arabic"
-
 	"github.com/scuba-plaza/arabic-vocab/internal/notes"
 )
 
@@ -55,10 +53,6 @@ func AudioIndex(manifest []ManifestEntry) map[string]string {
 		out[m.Text] = m.File
 	}
 	return out
-}
-
-func TranscriptMatches(text, transcript string) bool {
-	return arabic.Normalize(text) == arabic.Normalize(transcript)
 }
 
 func GenerateAudio(ctx context.Context, ns []notes.Note, previous []ManifestEntry, previousChecks []notes.AudioCheck, speak Speaker, listen Listener, opts AudioOptions) (*AudioResult, error) {
@@ -136,31 +130,30 @@ func GenerateAudio(ctx context.Context, ns []notes.Note, previous []ManifestEntr
 	}
 	index := AudioIndex(res.Manifest)
 	for _, n := range ns {
-		if !n.Authored() || n.Example == "" {
+		if !n.Authored() {
 			continue
 		}
-		text := PlainText(n.Example)
-		file, ok := index[text]
-		if !ok {
-			continue
-		}
-		key := n.ID + "\x1f" + text
-		if c, ok := checked[key]; ok && c.File == file {
-			res.Checks = append(res.Checks, c)
+		for _, at := range AudioTexts(n) {
+			if at.Field != "ExampleAudio" {
+				continue
+			}
+			file, ok := index[at.Text]
+			if !ok {
+				continue
+			}
+			c, ok := checked[n.ID+"\x1f"+at.Text]
+			if !ok || c.File != file {
+				transcript, err := listen(ctx, MediaPath(opts.MediaDir, file))
+				if err != nil {
+					return res, fmt.Errorf("transcribing %s: %w", file, err)
+				}
+				c = notes.AudioCheck{ID: n.ID, Field: at.Field, Text: at.Text, File: file, Transcript: transcript, Match: TranscriptMatches(at.Text, transcript)}
+			}
 			if !c.Match {
 				res.Mismatches++
 			}
-			continue
+			res.Checks = append(res.Checks, c)
 		}
-		transcript, err := listen(ctx, MediaPath(opts.MediaDir, file))
-		if err != nil {
-			return res, fmt.Errorf("transcribing %s: %w", file, err)
-		}
-		c := notes.AudioCheck{ID: n.ID, Field: "ExampleAudio", Text: text, File: file, Transcript: transcript, Match: TranscriptMatches(text, transcript)}
-		if !c.Match {
-			res.Mismatches++
-		}
-		res.Checks = append(res.Checks, c)
 	}
 	return res, nil
 }

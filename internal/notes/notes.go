@@ -20,23 +20,24 @@ type Form struct {
 }
 
 type Note struct {
-	ID         string   `json:"id"`
-	Position   int      `json:"position"`
-	Arabic     string   `json:"arabic"`
-	Pos        string   `json:"pos"`
-	Gender     string   `json:"gender,omitempty"`
-	VerbForm   string   `json:"verb_form,omitempty"`
-	Root       string   `json:"root,omitempty"`
-	Forms      []Form   `json:"forms,omitempty"`
-	English    string   `json:"english"`
-	Hint       string   `json:"hint,omitempty"`
-	Example    string   `json:"example"`
-	ExampleEn  string   `json:"example_en"`
-	Production *bool    `json:"production,omitempty"`
-	Reviewed   []string `json:"reviewed,omitempty"`
-	CEFR       string   `json:"cefr,omitempty"`
-	Source     string   `json:"source,omitempty"`
-	Comment    string   `json:"comment,omitempty"`
+	ID            string   `json:"id"`
+	Position      int      `json:"position"`
+	Arabic        string   `json:"arabic"`
+	Pos           string   `json:"pos"`
+	Gender        string   `json:"gender,omitempty"`
+	VerbForm      string   `json:"verb_form,omitempty"`
+	Root          string   `json:"root,omitempty"`
+	Forms         []Form   `json:"forms,omitempty"`
+	English       string   `json:"english"`
+	Hint          string   `json:"hint,omitempty"`
+	Example       string   `json:"example"`
+	ExampleEn     string   `json:"example_en"`
+	Production    *bool    `json:"production,omitempty"`
+	Reviewed      []string `json:"reviewed,omitempty"`
+	ReviewedAudio []string `json:"reviewed_audio,omitempty"`
+	CEFR          string   `json:"cefr,omitempty"`
+	Source        string   `json:"source,omitempty"`
+	Comment       string   `json:"comment,omitempty"`
 }
 
 func (n *Note) Authored() bool {

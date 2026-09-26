@@ -14,6 +14,7 @@ import (
 
 	"github.com/scuba-plaza/arabic-vocab/internal/anki"
 	"github.com/scuba-plaza/arabic-vocab/internal/notes"
+	"github.com/scuba-plaza/arabic-vocab/internal/tashkeel"
 )
 
 type BuildOptions struct {
@@ -50,7 +51,7 @@ func AudioTexts(n notes.Note) []AudioText {
 		out = append(out, AudioText{Field: "FormsAudio", Text: f})
 	}
 	if n.Example != "" {
-		out = append(out, AudioText{Field: "ExampleAudio", Text: PlainText(n.Example)})
+		out = append(out, AudioText{Field: "ExampleAudio", Text: tashkeel.Pausal(PlainText(n.Example))})
 	}
 	return out
 }
@@ -224,9 +225,9 @@ func BuildPackage(ns []notes.Note, checks []notes.Check, audio []notes.AudioChec
 			}
 		}
 		for _, a := range audioByID[n.ID] {
-			if !a.Match && opts.Audio[a.Text] == a.File {
+			if !a.Match && opts.Audio[a.Text] == a.File && !slices.Contains(n.ReviewedAudio, a.File) {
 				tags = appendUnique(tags, "check::audio")
-				checkLines = append(checkLines, "Speech recognition heard "+markArabic(a.Transcript)+" for the "+strings.ToLower(strings.TrimSuffix(a.Field, "Audio"))+" audio.")
+				checkLines = append(checkLines, "Speech recognition heard "+markArabic(a.Transcript)+" in the "+strings.ToLower(strings.TrimSuffix(a.Field, "Audio"))+" audio ("+html.EscapeString(a.File)+").")
 			}
 		}
 		if len(checkLines) > 0 {

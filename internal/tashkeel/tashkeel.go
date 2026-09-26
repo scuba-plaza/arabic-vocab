@@ -1,6 +1,7 @@
 package tashkeel
 
 import (
+	"regexp"
 	"slices"
 	"strings"
 
@@ -340,4 +341,55 @@ func UnmarkedLetters(word string, citation bool) []MissingMark {
 		missing = append(missing, MissingMark{Index: i, Letter: string(c.base)})
 	}
 	return missing
+}
+
+var sentenceEnd = regexp.MustCompile(`([\x{0621}-\x{0652}\x{0670}-\x{06D3}]+)(\s*)([.!?؟]|$)`)
+
+var keepsFinalVowel = map[string]bool{}
+
+func init() {
+	for _, w := range []string{"أَنْتَ", "أَنْتِ", "هُوَ", "هِيَ", "نَحْنُ"} {
+		keepsFinalVowel[render(clusters(w))] = true
+	}
+}
+
+func Pausal(s string) string {
+	return sentenceEnd.ReplaceAllStringFunc(s, func(m string) string {
+		sub := sentenceEnd.FindStringSubmatch(m)
+		return pausalWord(sub[1]) + sub[2] + sub[3]
+	})
+}
+
+func isCaseVowel(r rune) bool {
+	switch r {
+	case Fatha, Damma, Kasra, Fathatan, Dammatan, Kasratan:
+		return true
+	}
+	return false
+}
+
+func pausalWord(word string) string {
+	cs := clusters(word)
+	n := len(cs)
+	if n == 0 || keepsFinalVowel[render(cs)] {
+		return word
+	}
+	last := &cs[n-1]
+	switch {
+	case (last.base == alef || last.base == alefMaqsura) && n > 1 && (last.has(Fathatan) || cs[n-2].has(Fathatan)):
+		last.drop(Fathatan)
+		cs[n-2].drop(Fathatan)
+		cs[n-2].marks = append(cs[n-2].marks, Fatha)
+	case last.has(Fathatan) && last.base != 'ة':
+		last.drop(Fathatan)
+		last.marks = append(last.marks, Fatha)
+	case slices.ContainsFunc(last.marks, isCaseVowel):
+		last.marks = slices.DeleteFunc(last.marks, isCaseVowel)
+		if !last.has(Shadda) && last.base != 'ة' {
+			last.marks = append(last.marks, Sukun)
+		}
+	default:
+		return word
+	}
+	return render(cs)
 }
