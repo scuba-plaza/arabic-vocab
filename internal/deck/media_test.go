@@ -131,10 +131,10 @@ func TestTranscriptMatches(t *testing.T) {
 	}
 }
 
-func TestVoiceTestWritesPlayerPage(t *testing.T) {
+func TestCompareVoicesWritesPlayerPage(t *testing.T) {
 	dir := t.TempDir()
 	var calls int
-	page, err := VoiceTest(context.Background(), []Voice{{Name: "a"}, {Name: "b"}}, dir, func(_ context.Context, v Voice, text, path string) error {
+	page, err := CompareVoices(context.Background(), []Voice{{Name: "a"}, {Name: "b"}}, dir, func(_ context.Context, v Voice, text, path string) error {
 		calls++
 		return os.WriteFile(path, []byte(text), 0o644)
 	}, nil)

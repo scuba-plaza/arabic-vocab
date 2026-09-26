@@ -261,28 +261,60 @@ func compatible(word, reading []cluster) bool {
 		return false
 	}
 	for i := range word {
-		w, r := word[i], reading[i]
-		if w.base != r.base {
-			return false
-		}
-		if len(r.marks) == 0 {
-			continue
-		}
-		if w.has(Shadda) != r.has(Shadda) {
-			return false
-		}
-		rv := vowels(r)
-		if len(rv) == 0 {
-			if r.has(Sukun) && i < len(word)-1 && len(vowels(w)) > 0 {
-				return false
-			}
-			continue
-		}
-		if !slices.Equal(rv, vowels(w)) {
+		if !letterCompatible(word, reading, i) {
 			return false
 		}
 	}
 	return true
+}
+
+func letterCompatible(word, reading []cluster, i int) bool {
+	w, r := word[i], reading[i]
+	if w.base != r.base {
+		return false
+	}
+	if len(r.marks) == 0 {
+		return true
+	}
+	if w.has(Shadda) != r.has(Shadda) {
+		return false
+	}
+	rv := vowels(r)
+	if len(rv) == 0 {
+		return !(r.has(Sukun) && i < len(word)-1 && len(vowels(w)) > 0)
+	}
+	return slices.Equal(rv, vowels(w))
+}
+
+func Letters(word string) []string {
+	var out []string
+	prefix := ""
+	for _, r := range norm.NFC.String(word) {
+		switch {
+		case IsMark(r) || r == Tatweel:
+			if len(out) == 0 {
+				prefix += string(r)
+				continue
+			}
+			out[len(out)-1] += string(r)
+		default:
+			out = append(out, prefix+string(r))
+			prefix = ""
+		}
+	}
+	return out
+}
+
+func Differences(word, reading string) []bool {
+	w, r := normalize(word, true), normalize(reading, true)
+	if len(w) != len(r) {
+		return nil
+	}
+	out := make([]bool, len(r))
+	for i := range r {
+		out[i] = !letterCompatible(w, r, i)
+	}
+	return out
 }
 
 func DiacKey(word string) string {

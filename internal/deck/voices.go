@@ -32,7 +32,7 @@ var VoiceSamples = []VoiceSample{
 	{"قَرَأَ الطَّالِبُ الْكِتَابَ فِي الْمَكْتَبَةِ.", "qaraʔa ṭ-ṭālibu l-kitāba fī l-maktabati", "full sentence with case endings"},
 }
 
-func VoiceTest(ctx context.Context, voices []Voice, dir string, speak func(ctx context.Context, voice Voice, text, path string) error, progress func(done, total int)) (string, error) {
+func CompareVoices(ctx context.Context, voices []Voice, dir string, speak func(ctx context.Context, voice Voice, text, path string) error, progress func(done, total int)) (string, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
@@ -57,15 +57,15 @@ func VoiceTest(ctx context.Context, voices []Voice, dir string, speak func(ctx c
 		}
 	}
 	page := filepath.Join(dir, "index.html")
-	if err := os.WriteFile(page, []byte(voiceTestPage(voices)), 0o644); err != nil {
+	if err := os.WriteFile(page, []byte(voicesPage(voices)), 0o644); err != nil {
 		return "", err
 	}
 	return page, nil
 }
 
-func voiceTestPage(voices []Voice) string {
+func voicesPage(voices []Voice) string {
 	var b strings.Builder
-	b.WriteString(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Voice test</title>
+	b.WriteString(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Voices</title>
 <style>
 body{font-family:system-ui,sans-serif;margin:16px;background:#fafafa;color:#1d1d1f}
 table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #ddd;padding:8px;vertical-align:middle}
@@ -73,7 +73,7 @@ table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #ddd;pad
 audio{width:180px}
 </style></head><body>
 <h1>Which voice follows the vowel marks?</h1>
-<p>Each row is a word or sentence whose meaning depends on its vowels. Listen for the difference between rows in the same group, then pass the voice you trust to <code>arabic-vocab audio --voice</code>.</p>
+<p>Each row is a word or sentence whose meaning depends on its vowels. Listen for the difference between rows in the same group, then run <code>arabic-vocab audio --voice NAME</code> with the voice you trust. It is saved in the deck's <code>deck.json</code>, so later runs use it too.</p>
 <table><tr><th>Text</th>`)
 	for _, v := range voices {
 		b.WriteString("<th>" + html.EscapeString(v.Name) + "</th>")

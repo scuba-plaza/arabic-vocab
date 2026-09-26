@@ -1,0 +1,88 @@
+package review
+
+import (
+	"slices"
+	"strings"
+	"testing"
+
+	"github.com/scuba-plaza/arabic-vocab/internal/deck"
+	"github.com/scuba-plaza/arabic-vocab/internal/notes"
+)
+
+func note(id string, pos int, example string) notes.Note {
+	return notes.Note{ID: id, Position: pos, Arabic: id, Pos: "noun", English: "word", Example: example, ExampleEn: "A sentence."}
+}
+
+type fixture struct {
+	ns     []notes.Note
+	checks []notes.Check
+	audio  []notes.AudioCheck
+	index  map[string]string
+}
+
+func newFixture() fixture {
+	a := note("مَوْقِع", 1, "<b>وَجَدْتُ</b> الْمَعْلُومَاتِ فِي الْمَوْقِعِ.")
+	b := note("كَمْ", 2, "<b>كَمْ</b> سَاعَةً تَعْمَلُ؟")
+	c := note("قَدِيم", 3, "هٰذَا بَيْتٌ <b>قَدِيمٌ</b>.")
+	d := note("بَاب", 4, "أَغْلِقِ <b>الْبَابَ</b>.")
+	e := note("عَشَرَة", 5, "عِنْدِي <b>عَشَرَةُ</b> كُتُبٍ.")
+	e.Reviewed = []string{"عَشْر"}
+	f := notes.Note{ID: "جَدِيد", Position: 6, Arabic: "جَدِيد", Pos: "adj"}
+	ns := []notes.Note{a, b, c, d, e, f}
+	checks := []notes.Check{
+		{ID: a.ID, Version: deck.CheckVersion, Digest: a.Digest(), Issues: []notes.Issue{
+			{Field: "example", Kind: "diacritics", Severity: notes.Major, Word: "وَجَدْتُ", Detail: "CATT reads وُجِدَتْ; CAMeL reads وُجِدَت", CATT: "وُجِدَتْ", CAMeL: "وُجِدَت"},
+			{Field: "example", Kind: "diacritics", Severity: notes.Minor, Word: "الْمَعْلُومَاتِ", Detail: "CATT reads الْمَعْلُومَاتُ; CAMeL agrees with the card", CATT: "الْمَعْلُومَاتُ", CAMeL: "الْمَعْلُومَاتِ"},
+		}},
+		{ID: b.ID, Version: deck.CheckVersion, Digest: b.Digest(), Issues: []notes.Issue{
+			{Field: "example", Kind: "diacritics", Severity: notes.Minor, Word: "سَاعَةً", Detail: "CATT reads سَاعَةٍ; CAMeL agrees with the card", CATT: "سَاعَةٍ", CAMeL: "سَاعَةً"},
+		}},
+		{ID: c.ID, Version: deck.CheckVersion, Digest: "stale", Issues: []notes.Issue{{Field: "example", Kind: "diacritics", Severity: notes.Major, Word: "قَدِيمٌ"}}},
+		{ID: d.ID, Version: deck.CheckVersion, Digest: d.Digest()},
+		{ID: e.ID, Version: deck.CheckVersion, Digest: e.Digest(), Issues: []notes.Issue{{Field: "forms", Kind: "invalid", Severity: notes.Major, Word: "عَشْر"}}},
+	}
+	dText := deck.AudioTexts(d)[1].Text
+	index := map[string]string{dText: "ar-bab.mp3"}
+	audio := []notes.AudioCheck{{ID: d.ID, Field: "ExampleAudio", Text: dText, File: "ar-bab.mp3", Transcript: "اغلق الباب الان"}}
+	return fixture{ns: ns, checks: checks, audio: audio, index: index}
+}
+
+func (f fixture) items(minor bool) ([]Item, int) {
+	return Items(f.ns, f.checks, f.audio, f.index, minor)
+}
+
+func TestItemsCollectsUnreviewedFlags(t *testing.T) {
+	f := newFixture()
+	items, stale := f.items(true)
+	if stale != 1 {
+		t.Errorf("stale = %d, want 1", stale)
+	}
+	var got []string
+	for _, it := range items {
+		got = append(got, f.ns[it.Index].ID)
+	}
+	if !slices.Equal(got, []string{"مَوْقِع", "كَمْ", "بَاب"}) {
+		t.Fatalf("items = %v", got)
+	}
+	if items[0].Len() != 2 || len(items[2].Audio) != 1 {
+		t.Errorf("items = %+v", items)
+	}
+
+	items, _ = f.items(false)
+	if len(items) != 2 || items[0].Len() != 1 || items[1].Index != 3 {
+		t.Fatalf("without minor flags: %+v", items)
+	}
+}
+
+func TestFeedbackDescribesEveryFlag(t *testing.T) {
+	it := Item{
+		Issues: []notes.Issue{{Field: "example", Kind: "unchecked", Detail: "CATT's reading could not be aligned with the sentence"}},
+		Audio:  []notes.AudioCheck{{Field: "ExampleAudio", Transcript: "فذهبت الى السوق"}},
+	}
+	got := Feedback(it)
+	for _, want := range []string{"- the example: CATT's reading could not be aligned", `heard "فذهبت الى السوق" when the example audio`, "rewrite the example so it reads only one way"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("feedback lacks %q:\n%s", want, got)
+		}
+	}
+}

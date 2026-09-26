@@ -2,7 +2,10 @@ package tashkeel
 
 import (
 	"slices"
+	"strings"
 	"testing"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 func TestSkeleton(t *testing.T) {
@@ -193,6 +196,38 @@ func TestPausal(t *testing.T) {
 	for _, tc := range cases {
 		if got := Pausal(tc.in); render(clusters(got)) != render(clusters(tc.want)) {
 			t.Errorf("Pausal(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+func TestLettersKeepMarksWithTheirLetter(t *testing.T) {
+	cases := map[string]int{
+		"وَجَدْتُ":        4,
+		"مُحَمَّـــدٌ":    4,
+		"الْمَعْلُومَاتِ": 9,
+		"ٱسْتَخْدَمَ":     6,
+	}
+	for word, want := range cases {
+		got := Letters(word)
+		if len(got) != want || strings.Join(got, "") != norm.NFC.String(word) {
+			t.Errorf("Letters(%q) = %q, want %d letters that join back to the word", word, got, want)
+		}
+	}
+}
+
+func TestDifferencesMarkTheLettersThatDisagree(t *testing.T) {
+	cases := []struct {
+		word, reading string
+		want          []bool
+	}{
+		{"وَجَدْتُ", "وُجِدَتْ", []bool{true, true, true, false}},
+		{"الْمَعْلُومَاتِ", "الْمَعْلُومَاتُ", []bool{false, false, false, false, false, false, false, false, true}},
+		{"الْكِتَابُ", "الكتاب", []bool{false, false, false, false, false, false}},
+		{"كِتَاب", "كُتُب", nil},
+	}
+	for _, tc := range cases {
+		if got := Differences(tc.word, tc.reading); !slices.Equal(got, tc.want) {
+			t.Errorf("Differences(%q, %q) = %v, want %v", tc.word, tc.reading, got, tc.want)
 		}
 	}
 }

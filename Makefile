@@ -2,7 +2,7 @@ BINARY := arabic-vocab
 VENV   := .venv
 PYTHON := $(VENV)/bin/python
 
-.PHONY: build test vet fmt lint update venv camel-lemmas deck clean
+.PHONY: build test vet fmt lint update venv deck clean completions
 
 build:
 	go build -o $(BINARY) ./cmd/arabic-vocab
@@ -30,9 +30,6 @@ venv:
 	$(VENV)/bin/camel_data -i disambig-mle-calima-msa-r13
 	$(VENV)/bin/camel_data -i disambig-bert-unfactored-msa
 
-camel-lemmas:
-	$(PYTHON) scripts/camel_lemmas.py deck-data/camel-lemmas.tsv deck-data/raw/subtitles-ar-50k.txt:50000 deck-data/raw/camel-msa-top.tsv:100000
-
 deck: build
 	./$(BINARY) check
 	./$(BINARY) audio
@@ -41,3 +38,11 @@ deck: build
 clean:
 	rm -f $(BINARY)
 	rm -rf out
+
+COMPDIR := $(HOME)/.local/share/zsh/site-functions
+
+completions: build
+	@mkdir -p $(COMPDIR)
+	./$(BINARY) completion zsh > $(COMPDIR)/_$(BINARY)
+	@rm -f $${ZDOTDIR:-$$HOME}/.zcompdump
+	@echo "installed $(COMPDIR)/_$(BINARY) — restart zsh to pick it up"

@@ -35,29 +35,52 @@ example sentence for every word.
    sentence independently and must agree, with CAMeL's contextual BERT
    disambiguator as a tie-breaker.
 
-Notes where the sources disagree are tagged, and the back of the card says
-exactly what disagreed:
+`arabic-vocab audio` also transcribes every example clip back with speech
+recognition, to catch words the voice skipped or garbled.
+
+## Reviewing flags
+
+`./arabic-vocab review` opens a page in your browser with every note that has
+a flag you have not dealt with yet. The page is served only on your machine,
+because terminals cannot place Arabic vowel marks reliably and a browser can.
+The card is on the left, in the deck's own font; the flags are on the right;
+all flagged notes are listed down the side. Each flag says in plain words what
+disagreed: the card's vowels next to CATT's and CAMeL's readings with the
+differing letters highlighted, the vowellings CAMeL knows for a word it
+rejects, or the words speech recognition heard. Every action is a button, and
+has a key that also works with an Arabic keyboard layout:
+
+| Key | |
+| --- | --- |
+| `enter` | The card is right. Its flags go to the note's `reviewed` and `reviewed_audio` lists and stay out of the next build. |
+| `e` | Edit the note in a form, with a live preview of the card. |
+| `c` | Ask Claude Code for a better version. It is told what was flagged, works in the background while you carry on, and shows its version as a diff for you to keep (`y`) or not (`n`). |
+| `p`, `w` | Listen to the sentence or the word. |
+| `←` `→` | Move between notes; skipped notes come round again at the end. |
+| `u` | Undo your last decision. |
+
+Every decision is saved to `notes.jsonl` straight away. Click **Finish review**
+or press Ctrl+C in the terminal when you are done; the terminal prints what you
+decided. `--no-browser` only prints the address, and `--minor=false` shows only
+the major flags. Edited notes are checked again by the next `check`. Flags you
+leave open become tags in the deck, with the details on the back of the card:
 
 | Tag | Meaning |
 | --- | --- |
-| `check::diacritics` | No independent source supports the vowels, or CAMeL rejects them. Look at these. |
+| `check::diacritics` | No independent source supports the vowels, or CAMeL rejects them. |
 | `check::diacritics-minor` | CATT reads a word differently, but CAMeL agrees with the card. Usually CATT is wrong. |
-| `check::unverified` | The note changed since the last `check`. |
-| `check::audio` | Speech recognition heard something other than the sentence. Listen to the example. |
-
-Once you have looked at a flagged word and it is right, add it to the note's
-`reviewed` list in `notes.jsonl` and the tag disappears on the next build. For
-a flagged clip that sounds right, add the clip's file name (shown on the card
-and by `audio`) to the note's `reviewed_audio` list instead.
+| `check::unverified` | The note needs a fresh `check`: it is new or changed, or was checked by an older version. |
+| `check::audio` | Speech recognition heard something other than the sentence. |
 
 ## Setup
 
 - Go 1.26 or newer
-- Python 3 (tested with 3.11), for `check` and for re-ranking
+- Python 3 (tested with 3.11), for `check` and `rank`
 - `ffmpeg`, to verify audio with speech recognition
 - A Google Cloud service account key with Text-to-Speech and Speech-to-Text
   enabled, for audio (the same key [arabic-tts](https://github.com/scuba-plaza/arabic-tts) uses)
-- Anthropic API credentials, only for `curate`
+- [Claude Code](https://claude.com/claude-code), logged in, for `add` and for
+  `c` in `review`; a Pro or Max subscription is enough
 
 ```sh
 make build   # ./arabic-vocab
@@ -69,64 +92,78 @@ the BERT disambiguator, and CATT ships its model inside the package, so the
 first `check` needs no further downloads. Set `CAMELTOOLS_DATA` to keep the
 CAMeL data somewhere other than `~/.camel_tools`.
 
+On NixOS, run everything inside `nix-shell`. Besides Go, ffmpeg and Python it
+puts the C++ runtime and zlib on `LD_LIBRARY_PATH`, which the pip wheels for
+numpy, torch, onnxruntime and kenlm need; without it `check` fails with
+`libstdc++.so.6: cannot open shared object file`.
+
 Google credentials are found the same way arabic-tts finds them:
 `--credentials`, then `$GOOGLE_APPLICATION_CREDENTIALS`, then the first
 service account key in `.env/`.
 
-## Building the deck
+## Commands
 
-`decks/msa-core` already holds the ranked word list and the first 100
-finished notes, so building the deck only needs audio:
-
-```sh
-./arabic-vocab voicetest            # writes out/voicetest/index.html
-./arabic-vocab audio --voice ar-XA-Chirp3-HD-Kore
-./arabic-vocab build                # writes out/arabic-msa-core.apkg
+```
+status    where the deck stands and what to run next
+add       add the next most common words, written by Claude Code
+check     cross-check every vowel with CAMeL and CATT
+review    go through flagged notes and decide what to do with each
+audio     synthesize the audio and check it with speech recognition
+build     write the Anki package
+voices    compare voices on words that differ only in their vowels
+rank      rank Wiktionary's words by frequency (the deck ships with a ranking)
 ```
 
-`voicetest` synthesizes words that differ only in their vowels (عَلِمَ, عَلَّمَ,
-عُلِمَ …) with several voices. Pick the voice that follows the marks, and pass
-the same `--voice` every time you run `audio`. `audio` names each clip after a
-hash of voice, rate and text, so re-running it only synthesizes new or changed
-text. Example sentences are spoken with a pausal ending, the way a reader stops:
-the last word of each sentence drops its case vowel, so أَمْسِ is read أَمْسْ,
-while the card still shows the full sentence. Every example is transcribed back
-to catch skipped or garbled words; numbers heard as digits count as a match.
-When Google's per-minute quota runs out, `audio` waits and retries for about a
-minute; if it still fails, run the same command again, since finished clips are
-kept.
+New words go through `add`, `check`, `review`, `audio` and `build`, in that
+order, and `./arabic-vocab status` always names the next one:
+
+```sh
+./arabic-vocab add        # the next 100 words; -n 50 for another number
+./arabic-vocab check
+./arabic-vocab review
+./arabic-vocab audio
+./arabic-vocab build      # out/arabic-msa-core.apkg
+```
 
 Import the `.apkg` with File → Import. Rebuild and import again whenever notes
-change; Anki updates the existing notes.
+change; Anki updates the existing notes and keeps your review history.
 
-## Adding words
+### add
 
-```sh
-./arabic-vocab prepare --from 101 --to 300   # note skeletons from Wiktionary
-./arabic-vocab curate --from 101 --to 300    # glosses and sentences, Claude API
-./arabic-vocab check                         # cross-check every vowel
-./arabic-vocab audio
-./arabic-vocab build
-```
+`add` takes the most common words of the ranked list that the deck does not
+have yet. The headword, forms, gender and root come from Wiktionary, and your
+local Claude Code writes the English meaning, a hint where the meaning needs
+one, and a fully vowelled example sentence. It runs Claude Code in print mode
+(`claude -p`) with no tools and a JSON schema for the answer, so it uses your
+Claude Code login and needs no API key. Ten words go into each request
+(`--batch`); `--model` picks a model other than Claude Code's default. The
+instructions the model follows are in `internal/curate/guide.md`; it also sees
+eight finished notes as examples and the 1,000 most frequent words to build its
+sentences from. Answers that break the format are sent back once with the
+reason.
 
-`prepare` adds a note for every ranked word in the range that is not in
-`notes.jsonl` yet, with the headword, forms, gender and root filled in from
-Wiktionary. Existing notes are never touched.
+Usage counts towards your plan's limits, so add a few hundred words at a time.
+Every finished note is saved straight away: when a run stops at a usage limit,
+run `add` again once the limit resets, and the words that were not written come
+first. The token totals are printed at the end.
 
-`curate` fills in the English gloss, a hint where a gloss is ambiguous, and a
-fully vowelled example sentence. It needs a model, from `--model` or
-`$ANTHROPIC_MODEL`, and the Anthropic SDK's usual credentials such as
-`$ANTHROPIC_API_KEY`. The instructions the model follows are in
-`internal/curate/guide.md`; it also sees eight finished notes as examples and
-the 1,000 most frequent words to build its sentences from. Answers use
-structured outputs, and server-side fallbacks are on so that a refused request
-is answered by a fallback model; pass `--fallbacks=false` for a model that
-does not support them. `notes.jsonl` is saved after every note, so an
-interrupted run can simply be started again, and the token totals are printed
-at the end.
+### audio
 
-To write notes by hand instead, `./arabic-vocab show --from 101 --to 120`
-prints the Wiktionary entries for each word, and `notes.jsonl` can be edited
+`audio` synthesizes the word, its forms and the example sentence for every note
+and names each clip after a hash of voice, rate and text, so running it again
+only synthesizes new or changed text. The voice and rate are kept in the deck's
+`deck.json`; `./arabic-vocab voices` writes a page that compares voices on words
+that differ only in their vowels (عَلِمَ, عَلَّمَ, عُلِمَ …), and
+`audio --voice NAME` switches the deck to another voice and saves it there.
+Example sentences are spoken with a pausal ending, the way a reader stops: the
+last word of each sentence drops its case vowel, so أَمْسِ is read أَمْسْ,
+while the card still shows the full sentence. Numbers heard as digits count as
+a match. When Google's per-minute quota runs out, `audio` waits and retries for
+about a minute; if it still fails, run it again, since finished clips are kept.
+
+### notes.jsonl
+
+`e` in `review` opens a note as JSON, and `notes.jsonl` can also be edited
 directly:
 
 | Field | |
@@ -137,29 +174,31 @@ directly:
 | `pos`, `gender`, `verb_form`, `root` | Shown under the meaning. |
 | `forms` | `[{"label": "pl.", "arabic": "كُتُب"}]` |
 | `english`, `hint` | Meaning, and a hint that tells synonyms apart. |
-| `example`, `example_en` | Sentence with the word in `<b>…</b>`, and its translation. |
+| `example`, `example_en` | Sentence with the word in `<b>…</b>`, which the card shows in colour, and its translation. |
 | `production` | `true` or `false` to override the production-card cut-off. |
-| `reviewed` | Flagged words you have checked by hand. |
+| `reviewed` | Flagged words you have checked. |
 | `reviewed_audio` | Flagged audio clips you have listened to, by file name. |
 
 ## Re-ranking
 
-Only needed when changing how words are ranked:
+The ranked word list in `decks/msa-core` only needs rebuilding after editing
+`essentials.tsv` or `overrides.tsv`, or to rank more than 5,000 words:
 
 ```sh
-./arabic-vocab fetch     # Wiktionary dump and frequency lists into deck-data/raw
-make camel-lemmas        # CAMeL lemmas for every frequent word form
 ./arabic-vocab rank      # decks/msa-core/ranked.tsv and lexicon.jsonl
 ```
 
-Every frequent word form is mapped to a Wiktionary lemma twice, once with
-CAMeL's disambiguator and once with the inflection tables in the dump, and the
-two are reconciled. Frequencies from both corpora are blended with a geometric
-mean, Kelly A1/A2 words get a small boost, and `essentials.tsv` pulls
-greetings, numbers and days of the week up to a maximum rank. Fix a wrong
-mapping in `overrides.tsv`; `deck-data/rank-report.tsv` lists the disputed
-word forms, most frequent first. Positions of existing notes do not change
-when the ranking does.
+The first run downloads the Wiktionary dump and the frequency lists into
+`deck-data/raw` and has CAMeL Tools analyse every frequent word form, which
+takes a few minutes and needs `make venv`; both are kept for later runs, and
+`--refresh` starts over. Every frequent word form is mapped to a Wiktionary
+lemma twice, once with CAMeL's disambiguator and once with the inflection
+tables in the dump, and the two are reconciled. Frequencies from both corpora
+are blended with a geometric mean, Kelly A1/A2 words get a small boost, and
+`essentials.tsv` pulls greetings, numbers and days of the week up to a maximum
+rank. Fix a wrong mapping in `overrides.tsv`; `deck-data/rank-report.tsv` lists
+the disputed word forms, most frequent first. Positions of existing notes do
+not change when the ranking does.
 
 ## Anki settings
 
@@ -201,11 +240,12 @@ make update  # move to the newest arabic-tts release
 ```
 cmd/arabic-vocab    entry point
 internal/cli        cobra commands
-internal/deck       pipeline stages: fetch, prepare, check, audio, voice test, build
+internal/deck       pipeline stages: sources, next words, check, audio, voices, build
 internal/rank       frequency lists to ranked Wiktionary lemmas
 internal/lexicon    kaikki reader, MSA sense filter, lemma grouping
 internal/tashkeel   vowel-mark normalisation, lemma keys, reading comparison
-internal/curate     Claude API curation: guide, schema, runner
+internal/curate     writing notes with Claude Code: guide, schema, runner
+internal/review     the review page: session, local server, embedded web page
 internal/notes      notes.jsonl, qa.jsonl and other JSONL records
 internal/anki       .apkg writer
 scripts             CAMeL Tools and CATT helpers

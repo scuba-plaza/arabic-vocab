@@ -31,9 +31,9 @@ func tagsOf(t *testing.T, ns []notes.Note, checks []notes.Check) map[string][]st
 func TestBuildTagsBySeverityAndStaleness(t *testing.T) {
 	a, b, c, d := note("كِتَاب", 1), note("قَلَم", 2), note("بَيْت", 3), note("بَاب", 4)
 	checks := []notes.Check{
-		{ID: a.ID, Digest: a.Digest(), Issues: []notes.Issue{{Kind: "diacritics", Severity: notes.Major, Word: "كِتَابًا"}}},
-		{ID: b.ID, Digest: b.Digest(), Issues: []notes.Issue{{Kind: "diacritics", Severity: notes.Minor, Word: "قَرَأْتُ"}}},
-		{ID: c.ID, Digest: "stale"},
+		{ID: a.ID, Version: CheckVersion, Digest: a.Digest(), Issues: []notes.Issue{{Kind: "diacritics", Severity: notes.Major, Word: "كِتَابًا"}}},
+		{ID: b.ID, Version: CheckVersion, Digest: b.Digest(), Issues: []notes.Issue{{Kind: "diacritics", Severity: notes.Minor, Word: "قَرَأْتُ"}}},
+		{ID: c.ID, Version: CheckVersion, Digest: "stale"},
 	}
 	tags := tagsOf(t, []notes.Note{a, b, c, d}, checks)
 	want := map[string]string{a.ID: "check::diacritics", b.ID: "check::diacritics-minor", c.ID: "check::unverified", d.ID: "check::unverified"}
@@ -85,6 +85,12 @@ func TestEvaluateSeverity(t *testing.T) {
 	if len(checks[0].Issues) != 1 || checks[0].Issues[0].Severity != notes.Minor {
 		t.Fatalf("issues %+v", checks[0].Issues)
 	}
+	if checks[0].Version != CheckVersion {
+		t.Errorf("version = %d", checks[0].Version)
+	}
+	if is := checks[0].Issues[0]; is.CATT != "كِتَابُ" || is.CAMeL != "كِتابٌ" {
+		t.Errorf("readings not kept: %+v", is)
+	}
 	results[1].BERT = []string{"هٰذا", "كِتابُ"}
 	checks = Evaluate([]notes.Note{n}, items, results)
 	if len(checks[0].Issues) != 1 || checks[0].Issues[0].Severity != notes.Major {
@@ -92,7 +98,16 @@ func TestEvaluateSeverity(t *testing.T) {
 	}
 	results[1].Analyses[1] = []string{"كَتَبَ"}
 	checks = Evaluate([]notes.Note{n}, items, results)
-	if !slices.ContainsFunc(checks[0].Issues, func(i notes.Issue) bool { return i.Kind == "invalid" }) {
-		t.Errorf("a vowelling CAMeL does not know should be invalid: %+v", checks[0].Issues)
+	if !slices.ContainsFunc(checks[0].Issues, func(i notes.Issue) bool {
+		return i.Kind == "invalid" && slices.Equal(i.Known, []string{"كَتَبَ"})
+	}) {
+		t.Errorf("a vowelling CAMeL does not know should be invalid and list what it knows: %+v", checks[0].Issues)
+	}
+}
+
+func TestCardsNeverUseABoldWeight(t *testing.T) {
+	css := NoteType().CSS
+	if !strings.Contains(css, ".card b, .card strong {\n  font-weight: normal;") || strings.Contains(css, "bold") {
+		t.Error("the bundled font has no bold face, so <b> must not change the weight")
 	}
 }

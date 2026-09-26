@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -28,23 +27,43 @@ func newAudioCommand(paths *deck.Paths) *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "audio",
-		Short: "Synthesize word, form and example audio for every note",
+		Short: "Synthesize the audio and check it with speech recognition",
 		Long: "Synthesize three clips per note (headword, forms, example sentence) from\n" +
 			"the fully vowelled text, as MP3 in --cache/media. Clips are named after a\n" +
-			"hash of voice, rate and text, so re-running only synthesizes what changed.\n\n" +
-			"Example sentences are spoken with a pausal ending, as a reader stops: the\n" +
-			"last word of each sentence drops its case vowel (أَمْسِ is read أَمْسْ).\n\n" +
+			"hash of voice, rate and text, so running audio again only synthesizes what\n" +
+			"changed. Example sentences are spoken with a pausal ending, as a reader\n" +
+			"stops: the last word of each sentence drops its case vowel.\n\n" +
+			"The voice and speaking rate come from deck.json in --deck-dir. --voice and\n" +
+			"--rate change them there, so later runs keep using them; compare voices\n" +
+			"with 'arabic-vocab voices'.\n\n" +
 			"With --verify (the default) every example clip is transcribed back with\n" +
-			"speech-to-text; a transcript that does not match the sentence tags the note\n" +
-			"check::audio. Transcripts carry no vowels, so this catches skipped, garbled\n" +
-			"or invented words, not wrong vowels; pick a voice with 'arabic-vocab voicetest'.\n" +
-			"Once you have listened to a flagged clip and it sounds right, add its file\n" +
-			"name to the note's reviewed_audio list.",
+			"speech-to-text, and a transcript that does not match the sentence flags the\n" +
+			"note for 'arabic-vocab review', where you can listen to it. Transcripts\n" +
+			"carry no vowels, so this catches skipped, garbled or invented words, not\n" +
+			"wrong vowels.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ns, err := loadNotes(paths.Notes())
 			if err != nil {
 				return err
+			}
+			saved, err := deck.LoadSettings(paths.Settings())
+			if err != nil {
+				return err
+			}
+			settings := saved
+			if cmd.Flags().Changed("voice") {
+				settings.Voice = voice
+			}
+			if cmd.Flags().Changed("rate") {
+				settings.Rate = rate
+			}
+			remember := func(res *deck.AudioResult, runErr error) error {
+				if settings == saved || res == nil || runErr != nil && res.Synthesized == 0 {
+					return nil
+				}
+				infof("from now on the deck uses voice %s at rate %.2f (saved in %s)\n", settings.Voice, settings.Rate, paths.Settings())
+				return deck.SaveSettings(paths.Settings(), settings)
 			}
 			if verify {
 				if err := audio.Available(); err != nil {
@@ -61,7 +80,7 @@ func newAudioCommand(paths *deck.Paths) *cobra.Command {
 				return err
 			}
 			defer ttsClient.Close()
-			opts := tts.Options{Voice: voice, Language: config.DefaultLanguage, SpeakingRate: rate, Concurrency: 1}
+			opts := tts.Options{Voice: settings.Voice, Language: config.DefaultLanguage, SpeakingRate: settings.Rate, Concurrency: 1}
 			if err := opts.Validate(); err != nil {
 				return usageError{err}
 			}
@@ -101,7 +120,7 @@ func newAudioCommand(paths *deck.Paths) *cobra.Command {
 				return err
 			}
 			res, runErr := deck.GenerateAudio(ctx, ns, manifest, previous, speak, listen, deck.AudioOptions{
-				Voice:       deck.Voice{Name: voice, Rate: rate},
+				Voice:       settings.AudioVoice(),
 				MediaDir:    paths.Media(),
 				Concurrency: concurrency,
 				Verify:      verify,
@@ -118,6 +137,9 @@ func newAudioCommand(paths *deck.Paths) *cobra.Command {
 				}
 			}
 			infof("\n")
+			if err := remember(res, runErr); err != nil {
+				return err
+			}
 			if runErr != nil {
 				if res != nil {
 					infof("%d clips were saved before the error; run the same command again to continue\n", res.Synthesized)
@@ -126,35 +148,32 @@ func newAudioCommand(paths *deck.Paths) *cobra.Command {
 			}
 			infof("%d clips synthesized, %d already present\n", res.Synthesized, res.Reused)
 			if verify {
-				byID := map[string]notes.Note{}
-				for _, n := range ns {
-					byID[n.ID] = n
-				}
-				var flagged []notes.AudioCheck
+				flagged := 0
+				index := deck.AudioIndex(res.Manifest)
+				byID := map[string][]notes.AudioCheck{}
 				for _, c := range res.Checks {
-					if !c.Match && !slices.Contains(byID[c.ID].ReviewedAudio, c.File) {
-						flagged = append(flagged, c)
-					}
+					byID[c.ID] = append(byID[c.ID], c)
 				}
-				if len(flagged) == 0 {
-					infof("every example clip transcribed back to its sentence\n")
-				} else {
-					infof("%d example clips did not transcribe back to their sentence; listen to them, and add the file of any that sound right to the note's reviewed_audio:\n", len(flagged))
-					out := cmd.OutOrStdout()
-					for _, c := range flagged {
-						fmt.Fprintf(out, "%d\t%s\t%s\theard: %s\n", byID[c.ID].Position, c.ID, c.File, c.Transcript)
-					}
+				for _, n := range ns {
+					flagged += len(deck.OpenAudio(n, byID[n.ID], index))
 				}
+				if flagged > 0 {
+					infof("%s did not transcribe back to the sentence\n", count(flagged, "example clip", "example clips"))
+					infof("next: arabic-vocab review, to listen to them, then arabic-vocab build\n")
+					return nil
+				}
+				infof("every example clip transcribed back to its sentence\n")
 			}
 			infof("next: arabic-vocab build\n")
 			return nil
 		},
 	}
 	f := cmd.Flags()
-	f.StringVar(&voice, "voice", config.DefaultVoice, "voice name; compare candidates with 'arabic-vocab voicetest'")
-	f.Float64Var(&rate, "rate", 0.9, "speaking rate between 0.25 and 2.0")
+	f.StringVar(&voice, "voice", "", "use this voice from now on and save it in deck.json")
+	f.Float64Var(&rate, "rate", 0, "use this speaking rate (0.25 to 2.0) from now on and save it in deck.json")
 	f.IntVar(&concurrency, "concurrency", 4, "parallel synthesis requests")
 	f.BoolVar(&verify, "verify", true, "transcribe example clips back and flag mismatches")
+	googleFlags(cmd, true)
 	return cmd
 }
 
@@ -170,17 +189,18 @@ func pickVoices(all []tts.VoiceInfo) []string {
 	return out
 }
 
-func newVoiceTestCommand(paths *deck.Paths) *cobra.Command {
+func newVoicesCommand(paths *deck.Paths) *cobra.Command {
 	var (
 		voices string
 		rate   float64
 	)
 	cmd := &cobra.Command{
-		Use:   "voicetest",
-		Short: "Compare how voices pronounce words that differ only in their vowels",
+		Use:   "voices",
+		Short: "Compare voices on words that differ only in their vowels",
 		Long: "Synthesize minimal pairs such as عَلِمَ / عَلَّمَ / عُلِمَ and a fully vowelled\n" +
 			"sentence with several voices, and write an HTML page with an audio player\n" +
-			"for each. Open it, listen, and use the voice that follows the marks.\n\n" +
+			"for each. Open it, listen, and give the voice that follows the marks to\n" +
+			"'arabic-vocab audio --voice'.\n\n" +
 			"Without --voices, two Chirp 3 HD voices and one voice of each older tier\n" +
 			"are picked from Google's ar-XA voices.",
 		Args: cobra.NoArgs,
@@ -209,7 +229,7 @@ func newVoiceTestCommand(paths *deck.Paths) *cobra.Command {
 			for _, n := range names {
 				list = append(list, deck.Voice{Name: strings.TrimSpace(n), Rate: rate})
 			}
-			page, err := deck.VoiceTest(ctx, list, paths.VoiceTest(), func(ctx context.Context, v deck.Voice, text, path string) error {
+			page, err := deck.CompareVoices(ctx, list, paths.Voices(), func(ctx context.Context, v deck.Voice, text, path string) error {
 				_, err := tts.Synthesize(ctx, client, text, tts.Options{Voice: v.Name, Language: config.DefaultLanguage, SpeakingRate: v.Rate, Output: path, Concurrency: 1})
 				return err
 			}, func(done, total int) { infof("\rsynthesized %d/%d", done, total) })
@@ -222,6 +242,7 @@ func newVoiceTestCommand(paths *deck.Paths) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&voices, "voices", "", "comma-separated voice names (default: a few per tier)")
-	cmd.Flags().Float64Var(&rate, "rate", 0.9, "speaking rate")
+	cmd.Flags().Float64Var(&rate, "rate", deck.DefaultRate, "speaking rate")
+	googleFlags(cmd, false)
 	return cmd
 }

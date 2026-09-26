@@ -74,12 +74,16 @@ type Issue struct {
 	Severity Severity `json:"severity"`
 	Word     string   `json:"word,omitempty"`
 	Detail   string   `json:"detail"`
+	CATT     string   `json:"catt,omitempty"`
+	CAMeL    string   `json:"camel,omitempty"`
+	Known    []string `json:"known,omitempty"`
 }
 
 type Check struct {
-	ID     string  `json:"id"`
-	Digest string  `json:"digest"`
-	Issues []Issue `json:"issues,omitempty"`
+	ID      string  `json:"id"`
+	Version int     `json:"version"`
+	Digest  string  `json:"digest"`
+	Issues  []Issue `json:"issues,omitempty"`
 }
 
 type AudioCheck struct {

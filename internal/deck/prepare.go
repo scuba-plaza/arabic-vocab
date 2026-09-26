@@ -1,11 +1,8 @@
 package deck
 
 import (
-	"fmt"
-	"io"
-	"strings"
+	"slices"
 
-	"github.com/scuba-plaza/arabic-vocab/internal/lexicon"
 	"github.com/scuba-plaza/arabic-vocab/internal/notes"
 	"github.com/scuba-plaza/arabic-vocab/internal/rank"
 )
@@ -52,82 +49,37 @@ func DefaultNote(rec rank.Record) notes.Note {
 	return n
 }
 
-func Prepare(existing []notes.Note, records []rank.Record, from, to int) ([]notes.Note, int) {
+func NextWords(existing []notes.Note, records []rank.Record, n int) ([]notes.Note, []int) {
 	have := map[string]bool{}
 	taken := map[int]bool{}
-	for _, n := range existing {
-		have[n.ID] = true
-		taken[n.Position] = true
+	var ids []string
+	for _, x := range existing {
+		have[x.ID] = true
+		taken[x.Position] = true
+		if !x.Authored() && len(ids) < n {
+			ids = append(ids, x.ID)
+		}
 	}
-	out := append([]notes.Note(nil), existing...)
-	added := 0
-	for _, rec := range records {
-		if rec.Rank < from || rec.Rank > to || have[rec.ID] || taken[rec.Rank] || len(rec.Entries) == 0 {
+	out := slices.Clone(existing)
+	ranked := slices.Clone(records)
+	slices.SortStableFunc(ranked, func(a, b rank.Record) int { return a.Rank - b.Rank })
+	for _, rec := range ranked {
+		if len(ids) >= n {
+			break
+		}
+		if have[rec.ID] || taken[rec.Rank] || len(rec.Entries) == 0 {
 			continue
 		}
 		out = append(out, DefaultNote(rec))
-		added++
+		taken[rec.Rank] = true
+		ids = append(ids, rec.ID)
 	}
 	notes.Sort(out)
-	return out, added
-}
-
-func WriteWorksheet(w io.Writer, records []rank.Record, from, to int) {
-	for _, rec := range records {
-		if rec.Rank < from || rec.Rank > to {
-			continue
-		}
-		fmt.Fprintf(w, "## %d  %s", rec.Rank, rec.ID)
-		if rec.CEFR != "" {
-			fmt.Fprintf(w, "  [%s]", rec.CEFR)
-		}
-		fmt.Fprintln(w)
-		for _, e := range rec.Entries {
-			fmt.Fprintf(w, "  %s %s%s\n", e.Pos, e.Canonical, describe(e))
-			for i, s := range e.Senses {
-				if i == 8 {
-					fmt.Fprintf(w, "    … %d more\n", len(e.Senses)-8)
-					break
-				}
-				marker := " "
-				if !s.MSA {
-					marker = "x"
-				}
-				tags := ""
-				if len(s.Tags) > 0 {
-					tags = " {" + strings.Join(s.Tags, ",") + "}"
-				}
-				fmt.Fprintf(w, "    %s %s%s\n", marker, s.Gloss, tags)
-			}
+	var targets []int
+	for i, x := range out {
+		if slices.Contains(ids, x.ID) {
+			targets = append(targets, i)
 		}
 	}
-}
-
-func describe(e *lexicon.Entry) string {
-	var parts []string
-	if e.Gender != "" {
-		parts = append(parts, e.Gender)
-	}
-	if e.VerbForm != "" {
-		parts = append(parts, "form "+e.VerbForm)
-	}
-	if e.NonPast != "" {
-		parts = append(parts, "pres. "+e.NonPast)
-	}
-	if len(e.VerbalNouns) > 0 {
-		parts = append(parts, "masdar "+strings.Join(e.VerbalNouns, "/"))
-	}
-	if e.Feminine != "" {
-		parts = append(parts, "f. "+e.Feminine)
-	}
-	if len(e.Plurals) > 0 {
-		parts = append(parts, "pl. "+strings.Join(e.Plurals, "/"))
-	}
-	if e.Root != "" {
-		parts = append(parts, "root "+e.Root)
-	}
-	if len(parts) == 0 {
-		return ""
-	}
-	return "  (" + strings.Join(parts, "; ") + ")"
+	return out, targets
 }
