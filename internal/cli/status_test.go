@@ -30,7 +30,7 @@ func TestStatusNamesTheNextStep(t *testing.T) {
 	if got := next(); got != "check" {
 		t.Errorf("unchecked note: next = %q, want check", got)
 	}
-	major := notes.Check{ID: n.ID, Digest: n.Digest(), Issues: []notes.Issue{{Field: "example", Kind: "diacritics", Severity: notes.Major, Word: "كِتَابٌ"}}}
+	major := notes.Check{ID: n.ID, Version: deck.CheckVersion, Digest: n.Digest(), Issues: []notes.Issue{{Field: "example", Kind: "diacritics", Severity: notes.Major, Word: "كِتَابٌ"}}}
 	if err := notes.WriteJSONL(paths.QA(), []notes.Check{major}); err != nil {
 		t.Fatal(err)
 	}

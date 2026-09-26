@@ -80,9 +80,10 @@ type Issue struct {
 }
 
 type Check struct {
-	ID     string  `json:"id"`
-	Digest string  `json:"digest"`
-	Issues []Issue `json:"issues,omitempty"`
+	ID      string  `json:"id"`
+	Version int     `json:"version"`
+	Digest  string  `json:"digest"`
+	Issues  []Issue `json:"issues,omitempty"`
 }
 
 type AudioCheck struct {

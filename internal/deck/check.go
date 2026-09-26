@@ -96,7 +96,7 @@ func Evaluate(ns []notes.Note, items []CheckItem, results []CheckResult) []notes
 	byID := map[string]*notes.Check{}
 	var order []string
 	for _, n := range ns {
-		byID[n.ID] = &notes.Check{ID: n.ID, Digest: n.Digest()}
+		byID[n.ID] = &notes.Check{ID: n.ID, Version: CheckVersion, Digest: n.Digest()}
 		order = append(order, n.ID)
 	}
 	for i, item := range items {

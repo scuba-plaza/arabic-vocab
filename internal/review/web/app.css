@@ -572,7 +572,7 @@ button {
 }
 
 .flag .value {
-  font-size: clamp(1.8rem, 1.2rem + 0.75vw, 2.4rem);
+  font-size: clamp(2rem, 1.2rem + 1.1vw, 2.9rem);
   line-height: 1.7;
   color: var(--strong);
 }

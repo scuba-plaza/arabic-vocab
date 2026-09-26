@@ -69,7 +69,7 @@ leave open become tags in the deck, with the details on the back of the card:
 | --- | --- |
 | `check::diacritics` | No independent source supports the vowels, or CAMeL rejects them. |
 | `check::diacritics-minor` | CATT reads a word differently, but CAMeL agrees with the card. Usually CATT is wrong. |
-| `check::unverified` | The note changed since the last `check`. |
+| `check::unverified` | The note needs a fresh `check`: it is new or changed, or was checked by an older version. |
 | `check::audio` | Speech recognition heard something other than the sentence. |
 
 ## Setup

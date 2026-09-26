@@ -31,9 +31,9 @@ func tagsOf(t *testing.T, ns []notes.Note, checks []notes.Check) map[string][]st
 func TestBuildTagsBySeverityAndStaleness(t *testing.T) {
 	a, b, c, d := note("كِتَاب", 1), note("قَلَم", 2), note("بَيْت", 3), note("بَاب", 4)
 	checks := []notes.Check{
-		{ID: a.ID, Digest: a.Digest(), Issues: []notes.Issue{{Kind: "diacritics", Severity: notes.Major, Word: "كِتَابًا"}}},
-		{ID: b.ID, Digest: b.Digest(), Issues: []notes.Issue{{Kind: "diacritics", Severity: notes.Minor, Word: "قَرَأْتُ"}}},
-		{ID: c.ID, Digest: "stale"},
+		{ID: a.ID, Version: CheckVersion, Digest: a.Digest(), Issues: []notes.Issue{{Kind: "diacritics", Severity: notes.Major, Word: "كِتَابًا"}}},
+		{ID: b.ID, Version: CheckVersion, Digest: b.Digest(), Issues: []notes.Issue{{Kind: "diacritics", Severity: notes.Minor, Word: "قَرَأْتُ"}}},
+		{ID: c.ID, Version: CheckVersion, Digest: "stale"},
 	}
 	tags := tagsOf(t, []notes.Note{a, b, c, d}, checks)
 	want := map[string]string{a.ID: "check::diacritics", b.ID: "check::diacritics-minor", c.ID: "check::unverified", d.ID: "check::unverified"}
@@ -84,6 +84,9 @@ func TestEvaluateSeverity(t *testing.T) {
 	checks := Evaluate([]notes.Note{n}, items, results)
 	if len(checks[0].Issues) != 1 || checks[0].Issues[0].Severity != notes.Minor {
 		t.Fatalf("issues %+v", checks[0].Issues)
+	}
+	if checks[0].Version != CheckVersion {
+		t.Errorf("version = %d", checks[0].Version)
 	}
 	if is := checks[0].Issues[0]; is.CATT != "كِتَابُ" || is.CAMeL != "كِتابٌ" {
 		t.Errorf("readings not kept: %+v", is)

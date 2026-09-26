@@ -30,16 +30,16 @@ func newFixture() fixture {
 	f := notes.Note{ID: "جَدِيد", Position: 6, Arabic: "جَدِيد", Pos: "adj"}
 	ns := []notes.Note{a, b, c, d, e, f}
 	checks := []notes.Check{
-		{ID: a.ID, Digest: a.Digest(), Issues: []notes.Issue{
+		{ID: a.ID, Version: deck.CheckVersion, Digest: a.Digest(), Issues: []notes.Issue{
 			{Field: "example", Kind: "diacritics", Severity: notes.Major, Word: "وَجَدْتُ", Detail: "CATT reads وُجِدَتْ; CAMeL reads وُجِدَت", CATT: "وُجِدَتْ", CAMeL: "وُجِدَت"},
 			{Field: "example", Kind: "diacritics", Severity: notes.Minor, Word: "الْمَعْلُومَاتِ", Detail: "CATT reads الْمَعْلُومَاتُ; CAMeL agrees with the card", CATT: "الْمَعْلُومَاتُ", CAMeL: "الْمَعْلُومَاتِ"},
 		}},
-		{ID: b.ID, Digest: b.Digest(), Issues: []notes.Issue{
+		{ID: b.ID, Version: deck.CheckVersion, Digest: b.Digest(), Issues: []notes.Issue{
 			{Field: "example", Kind: "diacritics", Severity: notes.Minor, Word: "سَاعَةً", Detail: "CATT reads سَاعَةٍ; CAMeL agrees with the card", CATT: "سَاعَةٍ", CAMeL: "سَاعَةً"},
 		}},
-		{ID: c.ID, Digest: "stale", Issues: []notes.Issue{{Field: "example", Kind: "diacritics", Severity: notes.Major, Word: "قَدِيمٌ"}}},
-		{ID: d.ID, Digest: d.Digest()},
-		{ID: e.ID, Digest: e.Digest(), Issues: []notes.Issue{{Field: "forms", Kind: "invalid", Severity: notes.Major, Word: "عَشْر"}}},
+		{ID: c.ID, Version: deck.CheckVersion, Digest: "stale", Issues: []notes.Issue{{Field: "example", Kind: "diacritics", Severity: notes.Major, Word: "قَدِيمٌ"}}},
+		{ID: d.ID, Version: deck.CheckVersion, Digest: d.Digest()},
+		{ID: e.ID, Version: deck.CheckVersion, Digest: e.Digest(), Issues: []notes.Issue{{Field: "forms", Kind: "invalid", Severity: notes.Major, Word: "عَشْر"}}},
 	}
 	dText := deck.AudioTexts(d)[1].Text
 	index := map[string]string{dText: "ar-bab.mp3"}

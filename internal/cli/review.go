@@ -63,7 +63,7 @@ func newReviewCommand(paths *deck.Paths) *cobra.Command {
 			index := deck.AudioIndex(manifest)
 			items, stale := review.Items(ns, checks, audioChecks, index, minor)
 			if stale > 0 {
-				defer infof("%s new or changed since the last check and not shown; 'arabic-vocab check' checks them\n", count(stale, "note is", "notes are"))
+				defer infof("%s a fresh 'arabic-vocab check' and were not shown\n", count(stale, "note needs", "notes need"))
 			}
 			if len(items) == 0 {
 				infof("nothing to review\n")

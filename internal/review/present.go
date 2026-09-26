@@ -282,13 +282,13 @@ func issueView(is notes.Issue, faded bool) flagView {
 
 func describe(is notes.Issue, hl string) (string, []row, string) {
 	word := func(label, w string, marked []bool) row {
+		if w == "" {
+			return row{Label: label, Spans: []span{}, Note: "no reading"}
+		}
 		return row{Label: label, Spans: letterSpans(w, marked, hl), RTL: true}
 	}
 	switch is.Kind {
 	case "diacritics":
-		if is.CATT == "" {
-			return "CATT reads this word with other vowels", []row{word("card", is.Word, nil)}, is.Detail
-		}
 		catt := tashkeel.Differences(is.Word, is.CATT)
 		camel := tashkeel.Differences(is.Word, is.CAMeL)
 		either := make([]bool, len(tashkeel.Letters(is.Word)))
@@ -298,7 +298,7 @@ func describe(is notes.Issue, hl string) (string, []row, string) {
 		rows := []row{word("card", is.Word, either), word("CATT", is.CATT, catt)}
 		switch {
 		case is.CAMeL == "":
-			rows = append(rows, row{Label: "CAMeL", Spans: []span{}, Note: "no reading"})
+			rows = append(rows, word("CAMeL", "", nil))
 			return "CATT reads this word with other vowels", rows, "CAMeL had no reading for it, so check the vowels yourself."
 		case is.Severity == notes.Minor:
 			agrees := word("CAMeL", is.CAMeL, nil)
@@ -309,12 +309,8 @@ func describe(is notes.Issue, hl string) (string, []row, string) {
 		rows = append(rows, word("CAMeL", is.CAMeL, camel))
 		return "CATT and CAMeL both read this word with other vowels", rows, "Check the vowels. If the card is right, the sentence can probably be read another way without vowel marks; Claude Code can suggest a clearer one."
 	case "invalid":
-		rows := []row{word("card", is.Word, nil)}
-		if len(is.Known) > 0 {
-			rows = append(rows, row{Label: "known", Spans: []span{{T: strings.Join(is.Known, "، ")}}, RTL: true})
-			return "CAMeL does not know these vowels for this word", rows, "CAMeL's dictionary has the word, but not with these vowels. Compare with Wiktionary."
-		}
-		return "CAMeL does not know these vowels for this word", rows, is.Detail
+		rows := []row{word("card", is.Word, nil), word("known", strings.Join(is.Known, "، "), nil)}
+		return "CAMeL does not know these vowels for this word", rows, "CAMeL's dictionary has the word, but not with these vowels. Compare with Wiktionary."
 	case "unmarked":
 		return "Some letters have no vowel mark", []row{word("card", is.Word, unmarked(is))}, sentence(is.Detail)
 	case "unknown":

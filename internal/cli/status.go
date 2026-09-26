@@ -17,7 +17,7 @@ func newStatusCommand(paths *deck.Paths) *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
 		Short: "Show where the deck stands and what to run next",
-		Long: "Show how many words the deck has, which notes changed since the last check,\n" +
+		Long: "Show how many words the deck has, which notes need a fresh check,\n" +
 			"how many flags are waiting for review, how much audio is missing and whether\n" +
 			"the Anki package is up to date, and name the command to run next.",
 		Args: cobra.NoArgs,
@@ -149,7 +149,7 @@ func (s deckStatus) print(w io.Writer, paths *deck.Paths) {
 	case !s.checked && s.written > 0:
 		check = "not run yet"
 	case s.unchecked > 0:
-		check = count(s.unchecked, "note", "notes") + " new or changed since the last check"
+		check = count(s.unchecked, "note needs", "notes need") + " a fresh check"
 	}
 	flags := "nothing flagged"
 	switch {

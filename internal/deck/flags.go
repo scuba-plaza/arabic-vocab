@@ -13,8 +13,10 @@ func IssueKey(is notes.Issue) string {
 	return is.Field + ":" + is.Kind
 }
 
+const CheckVersion = 2
+
 func Current(n notes.Note, c notes.Check, ok bool) bool {
-	return ok && c.Digest == n.Digest()
+	return ok && c.Version == CheckVersion && c.Digest == n.Digest()
 }
 
 func OpenIssues(n notes.Note, c notes.Check) []notes.Issue {
