@@ -70,6 +70,11 @@ the BERT disambiguator, and CATT ships its model inside the package, so the
 first `check` needs no further downloads. Set `CAMELTOOLS_DATA` to keep the
 CAMeL data somewhere other than `~/.camel_tools`.
 
+On NixOS, run everything inside `nix-shell`. Besides Go, ffmpeg and Python it
+puts the C++ runtime and zlib on `LD_LIBRARY_PATH`, which the pip wheels for
+numpy, torch, onnxruntime and kenlm need; without it `check` fails with
+`libstdc++.so.6: cannot open shared object file`.
+
 Google credentials are found the same way arabic-tts finds them:
 `--credentials`, then `$GOOGLE_APPLICATION_CREDENTIALS`, then the first
 service account key in `.env/`.
