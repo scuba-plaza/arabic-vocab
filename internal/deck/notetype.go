@@ -174,6 +174,10 @@ const css = `@font-face {
   font-size: 1.8rem;
 }
 
+.card b, .card strong {
+  font-weight: normal;
+}
+
 .sentence b {
   color: #ffd479;
 }
