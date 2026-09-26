@@ -193,6 +193,7 @@ Suggested deck options for `Arabic::MSA Core`:
 make build   # build ./arabic-vocab
 make test    # offline unit tests; no network, no billing
 make lint    # go vet + gofmt check
+make update  # move to the newest arabic-tts release
 ```
 
 ## Layout

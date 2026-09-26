@@ -2,7 +2,7 @@ BINARY := arabic-vocab
 VENV   := .venv
 PYTHON := $(VENV)/bin/python
 
-.PHONY: build test vet fmt lint venv camel-lemmas deck clean
+.PHONY: build test vet fmt lint update venv camel-lemmas deck clean
 
 build:
 	go build -o $(BINARY) ./cmd/arabic-vocab
@@ -18,6 +18,10 @@ fmt:
 
 lint: vet
 	gofmt -l .
+
+update:
+	go get github.com/scuba-plaza/arabic-tts@latest
+	go mod tidy
 
 venv:
 	python3 -m venv $(VENV)
