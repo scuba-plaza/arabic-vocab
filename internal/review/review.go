@@ -2,11 +2,8 @@ package review
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
-
-	tea "charm.land/bubbletea/v2"
 
 	"github.com/scuba-plaza/arabic-vocab/internal/deck"
 	"github.com/scuba-plaza/arabic-vocab/internal/notes"
@@ -82,35 +79,30 @@ func Feedback(it Item) string {
 }
 
 type Options struct {
-	Save       func([]notes.Note) error
-	Rewrite    func(ctx context.Context, n notes.Note, feedback string) (notes.Note, error)
-	Clip       func(n notes.Note, field string) string
-	Play       func(ctx context.Context, path string) error
-	Editor     []string
-	ScratchDir string
+	Save     func([]notes.Note) error
+	Rewrite  func(ctx context.Context, n notes.Note, feedback string) (notes.Note, error)
+	Clip     func(n notes.Note, field string) string
+	FontPath string
 }
 
 type Summary struct {
-	Total     int
-	Kept      int
-	Edited    int
-	Rewritten int
-	Open      int
+	Total     int `json:"total"`
+	Kept      int `json:"kept"`
+	Edited    int `json:"edited"`
+	Rewritten int `json:"rewritten"`
+	Open      int `json:"open"`
 }
 
 func (s Summary) Changed() int {
 	return s.Edited + s.Rewritten
 }
 
-func Run(ctx context.Context, ns []notes.Note, items []Item, opts Options) (Summary, error) {
-	m := newModel(ctx, ns, items, opts)
-	_, err := tea.NewProgram(m, tea.WithContext(ctx)).Run()
-	m.stopAll()
-	if m.err != nil {
-		return m.summary(), m.err
+func NextSteps(s Summary) string {
+	switch {
+	case s.Changed() > 0:
+		return "Next: 'arabic-vocab check' checks the changed notes, then 'arabic-vocab audio' and 'arabic-vocab build'."
+	case s.Kept > 0:
+		return "Next: 'arabic-vocab build' leaves the flags you cleared out of the deck."
 	}
-	if errors.Is(err, tea.ErrInterrupted) || (errors.Is(err, tea.ErrProgramKilled) && ctx.Err() != nil) {
-		err = nil
-	}
-	return m.summary(), err
+	return ""
 }

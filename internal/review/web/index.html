@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>arabic-vocab review</title>
+<link rel="stylesheet" href="app.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="title">
+      <span class="brand">arabic-vocab</span>
+      <span class="page">review</span>
+      <span class="where" id="where"></span>
+    </div>
+    <div class="counts" id="counts"></div>
+    <button type="button" class="finish" id="finish">Finish review</button>
+    <div class="progress" aria-hidden="true"><div class="fill" id="fill"></div></div>
+  </header>
+  <nav class="list" id="list" aria-label="Flagged notes"></nav>
+  <main class="stage" id="stage" tabindex="-1"></main>
+  <footer class="bottom">
+    <div class="status">
+      <span class="message" id="message" role="status"></span>
+      <span class="activity" id="activity"></span>
+    </div>
+    <div class="actions" id="actions"></div>
+  </footer>
+</div>
+</body>
+</html>

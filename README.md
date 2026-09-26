@@ -40,26 +40,30 @@ recognition, to catch words the voice skipped or garbled.
 
 ## Reviewing flags
 
-`./arabic-vocab review` opens a full-screen review of every note with a flag
-you have not dealt with yet. Each flag says in plain words what disagreed: the
-card's vowels next to CATT's and CAMeL's readings with the differing letters
-highlighted, the vowellings CAMeL knows for a word it rejects, or the words
-speech recognition heard. One key decides:
+`./arabic-vocab review` opens a page in your browser with every note that has
+a flag you have not dealt with yet. The page is served only on your machine,
+because terminals cannot place Arabic vowel marks reliably and a browser can.
+The card is on the left, in the deck's own font; the flags are on the right;
+all flagged notes are listed down the side. Each flag says in plain words what
+disagreed: the card's vowels next to CATT's and CAMeL's readings with the
+differing letters highlighted, the vowellings CAMeL knows for a word it
+rejects, or the words speech recognition heard. Every action is a button, and
+has a key that also works with an Arabic keyboard layout:
 
 | Key | |
 | --- | --- |
 | `enter` | The card is right. Its flags go to the note's `reviewed` and `reviewed_audio` lists and stay out of the next build. |
-| `e` | Edit the note as JSON in `$VISUAL` or `$EDITOR`. |
+| `e` | Edit the note in a form, with a live preview of the card. |
 | `c` | Ask Claude Code for a better version. It is told what was flagged, works in the background while you carry on, and shows its version as a diff for you to keep (`y`) or not (`n`). |
-| `p`, `w` | Listen to the sentence or the word (needs `ffplay` from ffmpeg). |
+| `p`, `w` | Listen to the sentence or the word. |
 | `←` `→` | Move between notes; skipped notes come round again at the end. |
 | `u` | Undo your last decision. |
-| `q` | Quit. |
 
-Every decision is saved to `notes.jsonl` straight away, so you can quit at any
-time and continue later. Edited notes are checked again by the next `check`;
-`--minor=false` shows only the major flags. Flags you leave open become tags in
-the deck, with the details on the back of the card:
+Every decision is saved to `notes.jsonl` straight away. Click **Finish review**
+or press Ctrl+C in the terminal when you are done; the terminal prints what you
+decided. `--no-browser` only prints the address, and `--minor=false` shows only
+the major flags. Edited notes are checked again by the next `check`. Flags you
+leave open become tags in the deck, with the details on the back of the card:
 
 | Tag | Meaning |
 | --- | --- |
@@ -72,8 +76,7 @@ the deck, with the details on the back of the card:
 
 - Go 1.26 or newer
 - Python 3 (tested with 3.11), for `check` and `rank`
-- `ffmpeg`, to verify audio with speech recognition and to listen to it in
-  `review`
+- `ffmpeg`, to verify audio with speech recognition
 - A Google Cloud service account key with Text-to-Speech and Speech-to-Text
   enabled, for audio (the same key [arabic-tts](https://github.com/scuba-plaza/arabic-tts) uses)
 - [Claude Code](https://claude.com/claude-code), logged in, for `add` and for
@@ -242,7 +245,7 @@ internal/rank       frequency lists to ranked Wiktionary lemmas
 internal/lexicon    kaikki reader, MSA sense filter, lemma grouping
 internal/tashkeel   vowel-mark normalisation, lemma keys, reading comparison
 internal/curate     writing notes with Claude Code: guide, schema, runner
-internal/review     the full-screen review
+internal/review     the review page: session, local server, embedded web page
 internal/notes      notes.jsonl, qa.jsonl and other JSONL records
 internal/anki       .apkg writer
 scripts             CAMeL Tools and CATT helpers
