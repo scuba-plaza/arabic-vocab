@@ -2,10 +2,9 @@ package cli
 
 import (
 	"fmt"
-	"os"
+	"os/exec"
+	"strings"
 
-	"github.com/anthropics/anthropic-sdk-go"
-	"github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/spf13/cobra"
 
 	"github.com/scuba-plaza/arabic-vocab/internal/curate"
@@ -17,36 +16,35 @@ import (
 func newCurateCommand(paths *deck.Paths) *cobra.Command {
 	var (
 		from, to    int
+		claude      string
 		model       string
 		effort      string
-		maxTokens   int64
+		batch       int
 		concurrency int
 		attempts    int
 		vocabulary  int
 		examples    int
-		fallbacks   bool
 		redo        bool
 	)
 	cmd := &cobra.Command{
 		Use:   "curate",
-		Short: "Write glosses and example sentences with the Claude API",
-		Long: "Send every note in --from..--to that has no gloss or example yet to the\n" +
-			"Claude API together with its Wiktionary entries, and store the returned\n" +
-			"gloss, hint, forms and fully vowelled example sentence in notes.jsonl.\n" +
-			"The model follows internal/curate/guide.md, sees a few finished notes as\n" +
-			"examples, and is asked to build its sentences from the most frequent words.\n\n" +
-			"Uses the Anthropic SDK's usual credentials, such as ANTHROPIC_API_KEY, and\n" +
-			"the model from --model or ANTHROPIC_MODEL.\n" +
-			"notes.jsonl is saved after every note, so an interrupted run can simply be\n" +
-			"started again. Run 'arabic-vocab check' afterwards: the model's vowels are\n" +
-			"cross-checked like any other.",
+		Short: "Write glosses and example sentences with Claude Code",
+		Long: "Send every note in --from..--to that has no gloss or example yet to Claude\n" +
+			"Code, in batches, together with its Wiktionary entries, and store the\n" +
+			"returned gloss, hint, forms and fully vowelled example sentence in\n" +
+			"notes.jsonl. The model follows internal/curate/guide.md, sees a few finished\n" +
+			"notes as examples, and is asked to build its sentences from the most\n" +
+			"frequent words.\n\n" +
+			"Runs 'claude -p' with your Claude Code login, so a Pro or Max subscription\n" +
+			"is enough; no API key is needed. Usage counts towards your plan's limits.\n" +
+			"notes.jsonl is saved after every note, so a run that stops at a usage limit\n" +
+			"can simply be started again later. Run 'arabic-vocab check' afterwards: the\n" +
+			"model's vowels are cross-checked like any other.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if model == "" {
-				model = os.Getenv("ANTHROPIC_MODEL")
-			}
-			if model == "" {
-				return usagef("choose a model with --model or ANTHROPIC_MODEL")
+			path, err := exec.LookPath(claude)
+			if err != nil {
+				return usagef("%s not found: install Claude Code and log in with 'claude', or pass --claude", claude)
 			}
 			ns, err := loadNotes(paths.Notes())
 			if err != nil {
@@ -69,13 +67,9 @@ func newCurateCommand(paths *deck.Paths) *cobra.Command {
 				infof("every note in %d..%d already has a gloss and example; pass --redo to write them again\n", from, to)
 				return nil
 			}
-			infof("curating %d notes with %s\n", len(targets), model)
-			client := anthropic.NewClient(option.WithMaxRetries(4))
-			res, runErr := curate.Run(cmd.Context(), &client.Beta.Messages, ns, targets, byID, curate.Options{
-				Model:       model,
-				MaxTokens:   maxTokens,
-				Effort:      effort,
-				Fallbacks:   fallbacks,
+			infof("curating %d notes with Claude Code, %d per request\n", len(targets), batch)
+			res, runErr := curate.Run(cmd.Context(), curate.ClaudeCode{Path: path, Model: model, Effort: effort}, ns, targets, byID, curate.Options{
+				Batch:       batch,
 				Concurrency: concurrency,
 				Attempts:    attempts,
 				System:      curate.System(curate.PickExamples(ns, examples), vocab),
@@ -90,9 +84,9 @@ func newCurateCommand(paths *deck.Paths) *cobra.Command {
 			})
 			if res != nil {
 				u := res.Usage
-				infof("curated %d notes; tokens: %d input, %d cache reads, %d cache writes, %d output", res.Curated, u.Input, u.CacheRead, u.CacheWrite, u.Output)
-				if u.Fallbacks > 0 {
-					infof("; %d answered by a fallback model", u.Fallbacks)
+				infof("curated %d notes in %d requests; tokens: %d input, %d cache reads, %d cache writes, %d output", res.Curated, u.Calls, u.Input, u.CacheRead, u.CacheWrite, u.Output)
+				if len(u.Models) > 0 {
+					infof("; model %s", strings.Join(u.Models, ", "))
 				}
 				infof("\n")
 				for _, f := range res.Failed {
@@ -100,6 +94,9 @@ func newCurateCommand(paths *deck.Paths) *cobra.Command {
 				}
 			}
 			if runErr != nil {
+				if res != nil && res.Curated > 0 {
+					infof("the %d finished notes are saved; run the same command again to continue\n", res.Curated)
+				}
 				return runErr
 			}
 			if len(res.Failed) > 0 {
@@ -112,14 +109,14 @@ func newCurateCommand(paths *deck.Paths) *cobra.Command {
 	f := cmd.Flags()
 	f.IntVar(&from, "from", 1, "first position")
 	f.IntVar(&to, "to", 100, "last position")
-	f.StringVar(&model, "model", "", "Claude model ID (default $ANTHROPIC_MODEL)")
-	f.StringVar(&effort, "effort", "", "output effort: low, medium, high, xhigh or max (default: the model's own)")
-	f.Int64Var(&maxTokens, "max-tokens", 8192, "output token limit per note")
-	f.IntVar(&concurrency, "concurrency", 4, "parallel requests")
+	f.StringVar(&claude, "claude", "claude", "Claude Code executable")
+	f.StringVar(&model, "model", "", "model for Claude Code to use (default: Claude Code's own default)")
+	f.StringVar(&effort, "effort", "", "effort level: low, medium, high, xhigh or max (default: Claude Code's own)")
+	f.IntVar(&batch, "batch", 10, "notes per request")
+	f.IntVar(&concurrency, "concurrency", 2, "requests running at the same time")
 	f.IntVar(&attempts, "attempts", 2, "requests per note before giving up on a malformed answer")
 	f.IntVar(&vocabulary, "vocabulary", 1000, "offer the model this many top-ranked words to build sentences from")
 	f.IntVar(&examples, "examples", 8, "finished notes to show the model as examples")
-	f.BoolVar(&fallbacks, "fallbacks", true, "let the API answer on a fallback model when the chosen model declines")
 	f.BoolVar(&redo, "redo", false, "also rewrite notes that already have a gloss and example")
 	return cmd
 }

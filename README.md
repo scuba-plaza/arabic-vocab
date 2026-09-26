@@ -57,7 +57,8 @@ and by `audio`) to the note's `reviewed_audio` list instead.
 - `ffmpeg`, to verify audio with speech recognition
 - A Google Cloud service account key with Text-to-Speech and Speech-to-Text
   enabled, for audio (the same key [arabic-tts](https://github.com/scuba-plaza/arabic-tts) uses)
-- Anthropic API credentials, only for `curate`
+- [Claude Code](https://claude.com/claude-code), logged in, only for `curate`;
+  a Pro or Max subscription is enough
 
 ```sh
 make build   # ./arabic-vocab
@@ -103,7 +104,7 @@ change; Anki updates the existing notes.
 
 ```sh
 ./arabic-vocab prepare --from 101 --to 300   # note skeletons from Wiktionary
-./arabic-vocab curate --from 101 --to 300    # glosses and sentences, Claude API
+./arabic-vocab curate --from 101 --to 300    # glosses and sentences, Claude Code
 ./arabic-vocab check                         # cross-check every vowel
 ./arabic-vocab audio
 ./arabic-vocab build
@@ -114,16 +115,19 @@ change; Anki updates the existing notes.
 Wiktionary. Existing notes are never touched.
 
 `curate` fills in the English gloss, a hint where a gloss is ambiguous, and a
-fully vowelled example sentence. It needs a model, from `--model` or
-`$ANTHROPIC_MODEL`, and the Anthropic SDK's usual credentials such as
-`$ANTHROPIC_API_KEY`. The instructions the model follows are in
-`internal/curate/guide.md`; it also sees eight finished notes as examples and
-the 1,000 most frequent words to build its sentences from. Answers use
-structured outputs, and server-side fallbacks are on so that a refused request
-is answered by a fallback model; pass `--fallbacks=false` for a model that
-does not support them. `notes.jsonl` is saved after every note, so an
-interrupted run can simply be started again, and the token totals are printed
-at the end.
+fully vowelled example sentence. It runs your local Claude Code in print mode
+(`claude -p`) with no tools and a JSON schema for the answer, so it uses your
+Claude Code login and needs no API key. Ten notes go into each request
+(`--batch`); `--model` picks a model other than Claude Code's default. The
+instructions the model follows are in `internal/curate/guide.md`; it also sees
+eight finished notes as examples and the 1,000 most frequent words to build
+its sentences from. Answers that break the format are sent back once with the
+reason.
+
+Usage counts towards your plan's limits, so curate a few hundred words at a
+time. `notes.jsonl` is saved after every note: when a run stops at a usage
+limit, run the same command again once the limit resets and it continues with
+the notes that are still empty. The token totals are printed at the end.
 
 To write notes by hand instead, `./arabic-vocab show --from 101 --to 120`
 prints the Wiktionary entries for each word, and `notes.jsonl` can be edited
@@ -205,7 +209,7 @@ internal/deck       pipeline stages: fetch, prepare, check, audio, voice test, b
 internal/rank       frequency lists to ranked Wiktionary lemmas
 internal/lexicon    kaikki reader, MSA sense filter, lemma grouping
 internal/tashkeel   vowel-mark normalisation, lemma keys, reading comparison
-internal/curate     Claude API curation: guide, schema, runner
+internal/curate     curation through Claude Code: guide, schema, runner
 internal/notes      notes.jsonl, qa.jsonl and other JSONL records
 internal/anki       .apkg writer
 scripts             CAMeL Tools and CATT helpers

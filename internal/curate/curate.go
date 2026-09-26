@@ -11,8 +11,6 @@ import (
 	"sync"
 	"unicode"
 
-	"github.com/anthropics/anthropic-sdk-go"
-	"github.com/anthropics/anthropic-sdk-go/option"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/scuba-plaza/arabic-tts/arabic"
@@ -27,11 +25,32 @@ var guide string
 //go:embed schema.json
 var schema []byte
 
-type Messages interface {
-	New(ctx context.Context, params anthropic.BetaMessageNewParams, opts ...option.RequestOption) (*anthropic.BetaMessage, error)
+type Request struct {
+	System string
+	Prompt string
+	Schema []byte
+}
+
+type Usage struct {
+	Calls      int
+	Input      int64
+	Output     int64
+	CacheRead  int64
+	CacheWrite int64
+	Models     []string
+}
+
+type Response struct {
+	Output json.RawMessage
+	Usage  Usage
+}
+
+type Model interface {
+	Complete(ctx context.Context, req Request) (*Response, error)
 }
 
 type Card struct {
+	Position  int          `json:"position"`
 	Arabic    string       `json:"arabic"`
 	Pos       string       `json:"pos"`
 	English   string       `json:"english"`
@@ -48,34 +67,18 @@ func CardOf(n notes.Note) Card {
 		forms = []notes.Form{}
 	}
 	return Card{
-		Arabic: n.Arabic, Pos: n.Pos, English: n.English, Hint: n.Hint, Forms: forms,
+		Position: n.Position, Arabic: n.Arabic, Pos: n.Pos, English: n.English, Hint: n.Hint, Forms: forms,
 		Example: n.Example, ExampleEn: n.ExampleEn, Comment: n.Comment,
 	}
 }
 
-var (
-	ErrRefused   = errors.New("the model declined to write this card")
-	ErrTruncated = errors.New("the answer was cut off at the max_tokens limit")
-)
-
 type Options struct {
-	Model       string
-	MaxTokens   int64
-	Effort      string
-	Fallbacks   bool
+	Batch       int
 	Concurrency int
 	Attempts    int
-	System      []anthropic.BetaTextBlockParam
+	System      string
 	Progress    func(done, total int, n notes.Note, err error)
 	Save        func([]notes.Note) error
-}
-
-type Usage struct {
-	Input      int64
-	Output     int64
-	CacheRead  int64
-	CacheWrite int64
-	Fallbacks  int
 }
 
 type Failure struct {
@@ -121,11 +124,11 @@ func PickExamples(ns []notes.Note, n int) []notes.Note {
 	return out
 }
 
-func System(examples []notes.Note, vocabulary []string) []anthropic.BetaTextBlockParam {
-	blocks := []anthropic.BetaTextBlockParam{{Text: guide}}
+func System(examples []notes.Note, vocabulary []string) string {
 	var b strings.Builder
+	b.WriteString(guide)
 	if len(examples) > 0 {
-		b.WriteString("Finished cards, in the format you return:\n")
+		b.WriteString("\nFinished cards, in the format you return:\n")
 		for _, n := range examples {
 			c := CardOf(n)
 			c.Comment = ""
@@ -134,83 +137,61 @@ func System(examples []notes.Note, vocabulary []string) []anthropic.BetaTextBloc
 		}
 	}
 	if len(vocabulary) > 0 {
-		if b.Len() > 0 {
-			b.WriteByte('\n')
-		}
-		b.WriteString("The learner's core vocabulary, most frequent first. Build example sentences mainly from these words:\n")
+		b.WriteString("\nThe learner's core vocabulary, most frequent first. Build example sentences mainly from these words:\n")
 		b.WriteString(strings.Join(vocabulary, "\n"))
-	}
-	if b.Len() > 0 {
-		blocks = append(blocks, anthropic.BetaTextBlockParam{Text: b.String()})
-	}
-	blocks[len(blocks)-1].CacheControl = anthropic.NewBetaCacheControlEphemeralParam()
-	return blocks
-}
-
-func Prompt(n notes.Note, rec *rank.Record, problem string) string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "Rank %d in the frequency list", n.Position)
-	if n.CEFR != "" {
-		fmt.Fprintf(&b, ", CEFR level %s", n.CEFR)
-	}
-	b.WriteString(".\n\nDraft card generated from Wiktionary; keep what is right and fix what is wrong:\n")
-	b.Write(marshal(CardOf(n)))
-	if rec != nil && len(rec.Entries) > 0 {
-		b.WriteString("\n\nWiktionary entries that share this spelling, the likeliest first:\n")
-		for _, e := range rec.Entries {
-			b.Write(marshal(e))
-			b.WriteByte('\n')
-		}
-	}
-	if problem != "" {
-		fmt.Fprintf(&b, "\nA previous answer was rejected: %s. Return a corrected card.\n", problem)
+		b.WriteByte('\n')
 	}
 	return b.String()
 }
 
-func Request(opts Options, prompt string) anthropic.BetaMessageNewParams {
-	p := anthropic.BetaMessageNewParams{
-		Model:     anthropic.Model(opts.Model),
-		MaxTokens: opts.MaxTokens,
-		System:    opts.System,
-		Messages:  []anthropic.BetaMessageParam{anthropic.NewBetaUserMessage(anthropic.NewBetaTextBlock(prompt))},
-		OutputConfig: anthropic.BetaOutputConfigParam{
-			Format: anthropic.BetaJSONOutputFormatParam{Schema: json.RawMessage(schema)},
-		},
+func Prompt(drafts []notes.Note, records map[string]*rank.Record, problems map[int]string) string {
+	var b strings.Builder
+	if len(drafts) == 1 {
+		b.WriteString("Write the finished card for this draft. Return it in \"cards\" with the position of the draft.\n")
+	} else {
+		fmt.Fprintf(&b, "Write the finished card for each of these %d drafts. Return them in \"cards\", each with the position of its draft.\n", len(drafts))
 	}
-	if opts.Effort != "" {
-		p.OutputConfig.Effort = anthropic.BetaOutputConfigEffort(opts.Effort)
-	}
-	if opts.Fallbacks {
-		p.Fallbacks = anthropic.BetaFallbacksParamOfDefault()
-		p.Betas = []anthropic.AnthropicBeta{anthropic.AnthropicBetaServerSideFallback2026_07_01}
-	}
-	return p
-}
-
-func Parse(msg *anthropic.BetaMessage) (Card, error) {
-	switch msg.StopReason {
-	case anthropic.BetaStopReasonRefusal:
-		return Card{}, ErrRefused
-	case anthropic.BetaStopReasonMaxTokens:
-		return Card{}, ErrTruncated
-	}
-	var text strings.Builder
-	for _, block := range msg.Content {
-		switch block.Type {
-		case "fallback":
-			text.Reset()
-		case "text":
-			text.WriteString(block.Text)
+	for _, n := range drafts {
+		fmt.Fprintf(&b, "\n## Position %d", n.Position)
+		if n.CEFR != "" {
+			fmt.Fprintf(&b, " (CEFR %s)", n.CEFR)
+		}
+		b.WriteString("\nDraft generated from Wiktionary; keep what is right and fix what is wrong:\n")
+		b.Write(marshal(CardOf(n)))
+		b.WriteByte('\n')
+		if rec := records[n.ID]; rec != nil && len(rec.Entries) > 0 {
+			b.WriteString("Wiktionary entries that share this spelling, the likeliest first:\n")
+			for _, e := range rec.Entries {
+				b.Write(marshal(e))
+				b.WriteByte('\n')
+			}
+		}
+		if p := problems[n.Position]; p != "" {
+			fmt.Fprintf(&b, "A previous answer for this card was rejected: %s. Correct it.\n", p)
 		}
 	}
-	var c Card
-	dec := json.NewDecoder(strings.NewReader(text.String()))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&c); err != nil {
-		return Card{}, fmt.Errorf("the answer is not a card: %w", err)
+	return b.String()
+}
+
+func ParseCards(raw json.RawMessage) (map[int]Card, error) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil, errors.New("the answer contained no cards")
 	}
-	return c, nil
+	var out struct {
+		Cards []Card `json:"cards"`
+	}
+	dec := json.NewDecoder(strings.NewReader(string(raw)))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&out); err != nil {
+		return nil, fmt.Errorf("the answer is not a list of cards: %w", err)
+	}
+	cards := map[int]Card{}
+	for _, c := range out.Cards {
+		if _, dup := cards[c.Position]; !dup {
+			cards[c.Position] = c
+		}
+	}
+	return cards, nil
 }
 
 func isLatin(r rune) bool {
@@ -295,22 +276,25 @@ func Targets(ns []notes.Note, from, to int, redo bool) []int {
 	return out
 }
 
-func (u *Usage) add(msg *anthropic.BetaMessage) {
-	u.Input += msg.Usage.InputTokens
-	u.Output += msg.Usage.OutputTokens
-	u.CacheRead += msg.Usage.CacheReadInputTokens
-	u.CacheWrite += msg.Usage.CacheCreationInputTokens
-	for _, it := range msg.Usage.Iterations {
-		if it.Type == "fallback_message" {
-			u.Fallbacks++
-			break
+func (u *Usage) add(v Usage) {
+	u.Calls += v.Calls
+	u.Input += v.Input
+	u.Output += v.Output
+	u.CacheRead += v.CacheRead
+	u.CacheWrite += v.CacheWrite
+	for _, m := range v.Models {
+		if !slices.Contains(u.Models, m) {
+			u.Models = append(u.Models, m)
 		}
 	}
 }
 
-func Run(ctx context.Context, client Messages, ns []notes.Note, targets []int, records map[string]*rank.Record, opts Options) (*Result, error) {
+func Run(ctx context.Context, model Model, ns []notes.Note, targets []int, records map[string]*rank.Record, opts Options) (*Result, error) {
+	if opts.Batch <= 0 {
+		opts.Batch = 10
+	}
 	if opts.Concurrency <= 0 {
-		opts.Concurrency = 4
+		opts.Concurrency = 2
 	}
 	if opts.Attempts <= 0 {
 		opts.Attempts = 2
@@ -318,51 +302,77 @@ func Run(ctx context.Context, client Messages, ns []notes.Note, targets []int, r
 	res := &Result{}
 	var mu sync.Mutex
 	done := 0
+	finish := func(i int, err error) error {
+		done++
+		if err != nil {
+			res.Failed = append(res.Failed, Failure{ID: ns[i].ID, Position: ns[i].Position, Err: err})
+		} else {
+			res.Curated++
+			if opts.Save != nil {
+				if err := opts.Save(ns); err != nil {
+					return err
+				}
+			}
+		}
+		if opts.Progress != nil {
+			opts.Progress(done, len(targets), ns[i], err)
+		}
+		return nil
+	}
 	g, gctx := errgroup.WithContext(ctx)
 	g.SetLimit(opts.Concurrency)
-	for _, i := range targets {
+	for batch := range slices.Chunk(targets, opts.Batch) {
 		g.Go(func() error {
-			mu.Lock()
-			n := ns[i]
-			mu.Unlock()
-			var (
-				card    Card
-				failure error
-				problem string
-			)
-			for range opts.Attempts {
-				msg, err := client.New(gctx, Request(opts, Prompt(n, records[n.ID], problem)))
-				if err != nil {
-					return fmt.Errorf("%s: %w", n.ID, err)
-				}
+			pending := batch
+			problems := map[int]error{}
+			for attempt := 0; attempt < opts.Attempts && len(pending) > 0; attempt++ {
 				mu.Lock()
-				res.Usage.add(msg)
+				drafts := make([]notes.Note, len(pending))
+				reasons := map[int]string{}
+				for k, i := range pending {
+					drafts[k] = ns[i]
+					if p := problems[i]; p != nil {
+						reasons[ns[i].Position] = p.Error()
+					}
+				}
 				mu.Unlock()
-				card, failure = Parse(msg)
-				if failure == nil {
-					failure = Validate(card)
+				resp, err := model.Complete(gctx, Request{System: opts.System, Prompt: Prompt(drafts, records, reasons), Schema: schema})
+				if err != nil {
+					return err
 				}
-				if failure == nil || errors.Is(failure, ErrRefused) {
-					break
-				}
-				problem = failure.Error()
-			}
-			mu.Lock()
-			defer mu.Unlock()
-			done++
-			if failure != nil {
-				res.Failed = append(res.Failed, Failure{ID: n.ID, Position: n.Position, Err: failure})
-			} else {
-				ns[i] = Apply(n, card)
-				res.Curated++
-				if opts.Save != nil {
-					if err := opts.Save(ns); err != nil {
+				cards, parseErr := ParseCards(resp.Output)
+				mu.Lock()
+				res.Usage.add(resp.Usage)
+				var retry []int
+				for _, i := range pending {
+					card, ok := cards[ns[i].Position]
+					problem := parseErr
+					if problem == nil && !ok {
+						problem = errors.New("the answer had no card for this position")
+					}
+					if problem == nil {
+						problem = Validate(card)
+					}
+					if problem != nil {
+						problems[i] = problem
+						retry = append(retry, i)
+						continue
+					}
+					ns[i] = Apply(ns[i], card)
+					if err := finish(i, nil); err != nil {
+						mu.Unlock()
 						return err
 					}
 				}
+				mu.Unlock()
+				pending = retry
 			}
-			if opts.Progress != nil {
-				opts.Progress(done, len(targets), ns[i], failure)
+			mu.Lock()
+			defer mu.Unlock()
+			for _, i := range pending {
+				if err := finish(i, problems[i]); err != nil {
+					return err
+				}
 			}
 			return nil
 		})

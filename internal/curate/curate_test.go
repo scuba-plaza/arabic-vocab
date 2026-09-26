@@ -8,51 +8,35 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/anthropics/anthropic-sdk-go"
-	"github.com/anthropics/anthropic-sdk-go/option"
-
 	"github.com/scuba-plaza/arabic-vocab/internal/lexicon"
 	"github.com/scuba-plaza/arabic-vocab/internal/notes"
 	"github.com/scuba-plaza/arabic-vocab/internal/rank"
 )
 
-type fakeMessages struct {
-	mu      sync.Mutex
-	calls   []anthropic.BetaMessageNewParams
-	respond func(prompt string, call int) (*anthropic.BetaMessage, error)
+type fakeModel struct {
+	mu       sync.Mutex
+	requests []Request
+	respond  func(req Request, call int) (*Response, error)
 }
 
-func (f *fakeMessages) New(ctx context.Context, params anthropic.BetaMessageNewParams, opts ...option.RequestOption) (*anthropic.BetaMessage, error) {
+func (f *fakeModel) Complete(_ context.Context, req Request) (*Response, error) {
 	f.mu.Lock()
-	f.calls = append(f.calls, params)
-	call := len(f.calls)
+	f.requests = append(f.requests, req)
+	call := len(f.requests)
 	f.mu.Unlock()
-	prompt := params.Messages[0].Content[0].OfText.Text
-	return f.respond(prompt, call)
+	return f.respond(req, call)
 }
 
-type block map[string]any
-
-func message(t *testing.T, stop string, content ...block) *anthropic.BetaMessage {
-	t.Helper()
-	raw, err := json.Marshal(map[string]any{
-		"id": "msg_test", "type": "message", "role": "assistant", "model": "test-model",
-		"content": content, "stop_reason": stop,
-		"usage": map[string]any{"input_tokens": 100, "output_tokens": 50, "cache_read_input_tokens": 2000, "cache_creation_input_tokens": 0},
-	})
-	if err != nil {
-		t.Fatal(err)
+func answer(cards ...Card) *Response {
+	return &Response{
+		Output: marshal(map[string][]Card{"cards": cards}),
+		Usage:  Usage{Calls: 1, Input: 100, Output: 50, CacheRead: 2000, Models: []string{"test-model"}},
 	}
-	var msg anthropic.BetaMessage
-	if err := json.Unmarshal(raw, &msg); err != nil {
-		t.Fatal(err)
-	}
-	return &msg
 }
 
-func cardText(t *testing.T, c Card) block {
-	t.Helper()
-	return block{"type": "text", "text": string(marshal(c))}
+func at(c Card, position int) Card {
+	c.Position = position
+	return c
 }
 
 var kitab = Card{
@@ -66,12 +50,18 @@ var kataba = Card{
 	Example: "<b>كَتَبَ</b> أَخِي رِسَالَةً طَوِيلَةً.", ExampleEn: "My brother wrote a long letter.",
 }
 
+var qalam = Card{
+	Arabic: "قَلَم", Pos: "noun", English: "pen", Forms: []notes.Form{{Label: "pl.", Arabic: "أَقْلَام"}},
+	Example: "هٰذَا <b>قَلَمٌ</b> جَدِيدٌ.", ExampleEn: "This is a new pen.",
+}
+
 func sampleNotes() []notes.Note {
 	return []notes.Note{
 		{ID: "فِي", Position: 1, Arabic: "فِي", Pos: "prep", English: "in", Example: "<b>فِي</b> الْبَيْتِ.", ExampleEn: "In the house."},
-		{ID: "كِتَاب", Position: 2, Arabic: "كِتَاب", Pos: "noun", Gender: "m"},
+		{ID: "كِتَاب", Position: 2, Arabic: "كِتَاب", Pos: "noun", Gender: "m", CEFR: "A1"},
 		{ID: "كَتَبَ", Position: 3, Arabic: "كَتَبَ", Pos: "verb", VerbForm: "I"},
 		{ID: "قَلَم", Position: 4, Arabic: "قَلَم", Pos: "noun"},
+		{ID: "بَاب", Position: 5, Arabic: "بَاب", Pos: "noun"},
 	}
 }
 
@@ -81,26 +71,13 @@ func sampleRecords() map[string]*rank.Record {
 	}
 }
 
-func testOptions() Options {
-	return Options{Model: "test-model", MaxTokens: 1000, Fallbacks: true, Concurrency: 2, System: System(nil, []string{"فِي", "كِتَاب"})}
-}
-
-func TestRunFillsSelectedNotes(t *testing.T) {
+func TestRunFillsSelectedNotesInOneBatch(t *testing.T) {
 	ns := sampleNotes()
-	fake := &fakeMessages{respond: func(prompt string, call int) (*anthropic.BetaMessage, error) {
-		if strings.Contains(prompt, `"arabic":"كِتَاب"`) {
-			return message(t, "end_turn", cardText(t, kitab)), nil
-		}
-		return message(t, "end_turn", cardText(t, kataba)), nil
+	fake := &fakeModel{respond: func(req Request, call int) (*Response, error) {
+		return answer(at(kataba, 3), at(kitab, 2)), nil
 	}}
 	var saves int
-	var saved []notes.Note
-	opts := testOptions()
-	opts.Save = func(ns []notes.Note) error {
-		saves++
-		saved = append([]notes.Note(nil), ns...)
-		return nil
-	}
+	opts := Options{System: System(nil, []string{"فِي", "كِتَاب"}), Save: func([]notes.Note) error { saves++; return nil }}
 	targets := Targets(ns, 1, 3, false)
 	if len(targets) != 2 {
 		t.Fatalf("targets = %v, want the two unauthored notes in 1..3", targets)
@@ -109,8 +86,8 @@ func TestRunFillsSelectedNotes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Curated != 2 || len(res.Failed) != 0 || saves != 2 {
-		t.Fatalf("curated %d, failed %v, saves %d", res.Curated, res.Failed, saves)
+	if res.Curated != 2 || len(res.Failed) != 0 || saves != 2 || len(fake.requests) != 1 {
+		t.Fatalf("curated %d, failed %v, saves %d, calls %d", res.Curated, res.Failed, saves, len(fake.requests))
 	}
 	if ns[0].English != "in" || ns[3].Authored() {
 		t.Fatalf("notes outside the targets changed: %+v %+v", ns[0], ns[3])
@@ -118,165 +95,122 @@ func TestRunFillsSelectedNotes(t *testing.T) {
 	if ns[1].English != "book" || ns[1].Example != kitab.Example || ns[1].Gender != "m" || len(ns[1].Forms) != 1 {
 		t.Fatalf("kitab note = %+v", ns[1])
 	}
-	if ns[2].English != "to write" || ns[2].VerbForm != "I" || !saved[2].Authored() {
+	if ns[2].English != "to write" || ns[2].VerbForm != "I" {
 		t.Fatalf("kataba note = %+v", ns[2])
 	}
-	if res.Usage.Input != 200 || res.Usage.CacheRead != 4000 || res.Usage.Output != 100 {
-		t.Fatalf("usage = %+v", res.Usage)
-	}
-}
-
-func TestRequestShape(t *testing.T) {
-	n := sampleNotes()[1]
-	p := Request(testOptions(), Prompt(n, sampleRecords()[n.ID], ""))
-	raw, err := json.Marshal(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var body struct {
-		Model        string `json:"model"`
-		MaxTokens    int    `json:"max_tokens"`
-		Fallbacks    string `json:"fallbacks"`
-		OutputConfig struct {
-			Format struct {
-				Type   string `json:"type"`
-				Schema struct {
-					Required             []string `json:"required"`
-					AdditionalProperties bool     `json:"additionalProperties"`
-				} `json:"schema"`
-			} `json:"format"`
-		} `json:"output_config"`
-		System []struct {
-			Text         string `json:"text"`
-			CacheControl *struct {
-				Type string `json:"type"`
-			} `json:"cache_control"`
-		} `json:"system"`
-		Messages []struct {
-			Content []struct {
-				Text string `json:"text"`
-			} `json:"content"`
-		} `json:"messages"`
-	}
-	if err := json.Unmarshal(raw, &body); err != nil {
-		t.Fatal(err)
-	}
-	if body.Model != "test-model" || body.MaxTokens != 1000 || body.Fallbacks != "default" {
-		t.Fatalf("request = %s", raw)
-	}
-	if body.OutputConfig.Format.Type != "json_schema" || len(body.OutputConfig.Format.Schema.Required) != 8 || body.OutputConfig.Format.Schema.AdditionalProperties {
-		t.Fatalf("output_config = %+v", body.OutputConfig)
-	}
-	if len(body.System) != 2 || body.System[0].CacheControl != nil || body.System[1].CacheControl == nil || body.System[1].CacheControl.Type != "ephemeral" {
-		t.Fatalf("system blocks = %+v", body.System)
-	}
-	if !strings.Contains(body.System[1].Text, "فِي\nكِتَاب") {
-		t.Fatalf("vocabulary missing from %q", body.System[1].Text)
-	}
-	prompt := body.Messages[0].Content[0].Text
-	for _, want := range []string{"Rank 2", `"arabic":"كِتَاب"`, `"gloss":"book"`} {
-		if !strings.Contains(prompt, want) {
-			t.Fatalf("prompt lacks %s:\n%s", want, prompt)
+	req := fake.requests[0]
+	for _, want := range []string{"these 2 drafts", "## Position 2 (CEFR A1)", "## Position 3", `"arabic":"كِتَاب"`, `"gloss":"book"`} {
+		if !strings.Contains(req.Prompt, want) {
+			t.Errorf("prompt lacks %s:\n%s", want, req.Prompt)
 		}
 	}
-	if len(p.Betas) != 1 || p.Betas[0] != anthropic.AnthropicBetaServerSideFallback2026_07_01 {
-		t.Fatalf("betas = %v", p.Betas)
+	if !strings.HasPrefix(req.System, "You write flashcards") || !strings.HasSuffix(req.System, "فِي\nكِتَاب\n") {
+		t.Errorf("system prompt = %q", req.System)
 	}
-
-	opts := testOptions()
-	opts.Fallbacks = false
-	opts.Effort = "high"
-	raw, err = json.Marshal(Request(opts, "x"))
-	if err != nil {
-		t.Fatal(err)
+	var s struct {
+		Required []string `json:"required"`
 	}
-	if strings.Contains(string(raw), "fallbacks") || !strings.Contains(string(raw), `"effort":"high"`) {
-		t.Fatalf("request without fallbacks = %s", raw)
+	if err := json.Unmarshal(req.Schema, &s); err != nil || len(s.Required) != 1 || s.Required[0] != "cards" {
+		t.Errorf("schema = %s", req.Schema)
+	}
+	if res.Usage.Calls != 1 || res.Usage.Input != 100 || res.Usage.CacheRead != 2000 || len(res.Usage.Models) != 1 {
+		t.Errorf("usage = %+v", res.Usage)
 	}
 }
 
-func TestRunRetriesRejectedCards(t *testing.T) {
+func TestRunRetriesOnlyRejectedCards(t *testing.T) {
 	ns := sampleNotes()
-	bad := kitab
-	bad.Example = "<b>قَرَأْتُ</b> <b>الْكِتَابَ</b>."
-	fake := &fakeMessages{respond: func(prompt string, call int) (*anthropic.BetaMessage, error) {
+	bad := at(kataba, 3)
+	bad.Example = "<b>كَتَبَ</b> <b>أَخِي</b>."
+	fake := &fakeModel{respond: func(req Request, call int) (*Response, error) {
 		if call == 1 {
-			return message(t, "end_turn", cardText(t, bad)), nil
+			return answer(at(kitab, 2), bad), nil
 		}
-		if !strings.Contains(prompt, "A previous answer was rejected: the example must mark the target word with exactly one <b>…</b>") {
-			t.Errorf("retry prompt does not explain the problem:\n%s", prompt)
+		if strings.Contains(req.Prompt, "## Position 2") {
+			t.Errorf("an accepted card was sent again:\n%s", req.Prompt)
 		}
-		return message(t, "end_turn", cardText(t, kitab)), nil
+		for _, want := range []string{"these 2 drafts", "exactly one <b>…</b>", "the answer had no card for this position"} {
+			if !strings.Contains(req.Prompt, want) {
+				t.Errorf("retry prompt lacks %q:\n%s", want, req.Prompt)
+			}
+		}
+		return answer(at(kataba, 3), at(qalam, 4)), nil
 	}}
-	res, err := Run(context.Background(), fake, ns, []int{1}, sampleRecords(), testOptions())
+	res, err := Run(context.Background(), fake, ns, []int{1, 2, 3}, sampleRecords(), Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Curated != 1 || len(fake.calls) != 2 || ns[1].Example != kitab.Example {
-		t.Fatalf("curated %d after %d calls; note %+v", res.Curated, len(fake.calls), ns[1])
+	if res.Curated != 3 || len(fake.requests) != 2 || ns[2].Example != kataba.Example || ns[3].English != "pen" {
+		t.Fatalf("curated %d after %d calls; notes %+v %+v", res.Curated, len(fake.requests), ns[2], ns[3])
+	}
+}
+
+func TestRunSplitsTargetsIntoBatches(t *testing.T) {
+	ns := sampleNotes()
+	byPosition := map[int]Card{2: kitab, 3: kataba, 4: qalam, 5: at(qalam, 5)}
+	fake := &fakeModel{respond: func(req Request, call int) (*Response, error) {
+		var cards []Card
+		for p, c := range byPosition {
+			if strings.Contains(req.Prompt, "## Position "+string(rune('0'+p))) {
+				cards = append(cards, at(c, p))
+			}
+		}
+		return answer(cards...), nil
+	}}
+	res, err := Run(context.Background(), fake, ns, []int{1, 2, 3, 4}, nil, Options{Batch: 3, Concurrency: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Curated != 4 || len(fake.requests) != 2 || !strings.Contains(fake.requests[1].Prompt, "for this draft") {
+		t.Fatalf("curated %d in %d calls", res.Curated, len(fake.requests))
 	}
 }
 
 func TestRunGivesUpAfterAttempts(t *testing.T) {
 	ns := sampleNotes()
-	fake := &fakeMessages{respond: func(prompt string, call int) (*anthropic.BetaMessage, error) {
-		return message(t, "end_turn", block{"type": "text", "text": "not json"}), nil
+	fake := &fakeModel{respond: func(req Request, call int) (*Response, error) {
+		return &Response{Usage: Usage{Calls: 1}}, nil
 	}}
-	opts := testOptions()
-	opts.Attempts = 3
-	res, err := Run(context.Background(), fake, ns, []int{1, 2}, sampleRecords(), opts)
+	res, err := Run(context.Background(), fake, ns, []int{1, 2}, sampleRecords(), Options{Attempts: 3})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Curated != 0 || len(res.Failed) != 2 || len(fake.calls) != 6 {
-		t.Fatalf("curated %d, failed %v, calls %d", res.Curated, res.Failed, len(fake.calls))
+	if res.Curated != 0 || len(res.Failed) != 2 || len(fake.requests) != 3 {
+		t.Fatalf("curated %d, failed %v, calls %d", res.Curated, res.Failed, len(fake.requests))
 	}
 	if res.Failed[0].Position != 2 || res.Failed[1].Position != 3 || ns[1].Authored() {
 		t.Fatalf("failures = %+v", res.Failed)
 	}
 }
 
-func TestRunDoesNotRetryRefusals(t *testing.T) {
+func TestRunStopsWhenClaudeFails(t *testing.T) {
 	ns := sampleNotes()
-	fake := &fakeMessages{respond: func(prompt string, call int) (*anthropic.BetaMessage, error) {
-		return message(t, "refusal"), nil
+	limit := errors.New("claude: Claude AI usage limit reached")
+	fake := &fakeModel{respond: func(req Request, call int) (*Response, error) {
+		if call == 1 {
+			return answer(at(kitab, 2)), nil
+		}
+		return nil, limit
 	}}
-	res, err := Run(context.Background(), fake, ns, []int{1}, sampleRecords(), testOptions())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(fake.calls) != 1 || len(res.Failed) != 1 || !errors.Is(res.Failed[0].Err, ErrRefused) {
-		t.Fatalf("calls %d, failures %+v", len(fake.calls), res.Failed)
-	}
-}
-
-func TestRunStopsOnAPIErrors(t *testing.T) {
-	ns := sampleNotes()
-	boom := errors.New("401 invalid x-api-key")
-	fake := &fakeMessages{respond: func(prompt string, call int) (*anthropic.BetaMessage, error) {
-		return nil, boom
-	}}
-	_, err := Run(context.Background(), fake, ns, []int{1, 2}, sampleRecords(), testOptions())
-	if !errors.Is(err, boom) {
+	var saved int
+	res, err := Run(context.Background(), fake, ns, []int{1, 2, 3}, sampleRecords(), Options{Batch: 1, Concurrency: 1, Save: func([]notes.Note) error { saved++; return nil }})
+	if !errors.Is(err, limit) {
 		t.Fatalf("err = %v", err)
 	}
+	if res.Curated != 1 || saved != 1 || ns[1].English != "book" {
+		t.Fatalf("work before the failure should be kept: curated %d, saved %d", res.Curated, saved)
+	}
 }
 
-func TestParseKeepsTheTextAfterAFallback(t *testing.T) {
-	msg := message(t, "end_turn",
-		block{"type": "text", "text": `{"arabic":`},
-		block{"type": "fallback", "from": block{"model": "a"}, "to": block{"model": "b"}, "trigger": block{"type": "refusal", "category": "general_harms"}},
-		cardText(t, kitab),
-	)
-	c, err := Parse(msg)
-	if err != nil {
-		t.Fatal(err)
+func TestParseCards(t *testing.T) {
+	cards, err := ParseCards(json.RawMessage(`{"cards":[{"position":2,"arabic":"a"},{"position":2,"arabic":"b"}]}`))
+	if err != nil || cards[2].Arabic != "a" {
+		t.Fatalf("cards = %+v, err = %v", cards, err)
 	}
-	if c.English != "book" {
-		t.Fatalf("card = %+v", c)
-	}
-	if _, err := Parse(message(t, "max_tokens", block{"type": "text", "text": "{"})); !errors.Is(err, ErrTruncated) {
-		t.Fatalf("max_tokens: err = %v", err)
+	for _, raw := range []string{"", "null", `{"cards":[{"position":1,"surprise":true}]}`, `[1,2]`} {
+		if _, err := ParseCards(json.RawMessage(raw)); err == nil {
+			t.Errorf("ParseCards(%q) should fail", raw)
+		}
 	}
 }
 
@@ -310,8 +244,8 @@ func TestValidate(t *testing.T) {
 }
 
 func TestApplySwitchingPartOfSpeech(t *testing.T) {
-	n := notes.Note{ID: "x", Position: 9, Arabic: "بَعْد", Pos: "noun", Gender: "m", VerbForm: "", Reviewed: []string{"بَعْدَ"}, ReviewedAudio: []string{"ar-0.mp3"}}
-	c := Card{Arabic: "بَعْدَ", Pos: "prep", English: "after", Example: "<b>بَعْدَ</b> الدَّرْسِ.", ExampleEn: "After the lesson.", Forms: []notes.Form{}}
+	n := notes.Note{ID: "x", Position: 9, Arabic: "بَعْد", Pos: "noun", Gender: "m", Reviewed: []string{"بَعْدَ"}, ReviewedAudio: []string{"ar-0.mp3"}}
+	c := Card{Position: 9, Arabic: "بَعْدَ", Pos: "prep", English: "after", Example: "<b>بَعْدَ</b> الدَّرْسِ.", ExampleEn: "After the lesson.", Forms: []notes.Form{}}
 	got := Apply(n, c)
 	if got.Pos != "prep" || got.Arabic != "بَعْدَ" || got.Reviewed != nil || got.ReviewedAudio != nil || got.Forms != nil || got.ID != "x" || got.Position != 9 {
 		t.Fatalf("applied = %+v", got)
@@ -335,5 +269,13 @@ func TestPickExamplesPrefersDistinctPartsOfSpeech(t *testing.T) {
 	}
 	if got := PickExamples(ns, 5); len(got) != 3 || got[1].ID != "b" {
 		t.Fatalf("examples = %+v", got)
+	}
+}
+
+func TestSystemShowsExamplesWithoutEscaping(t *testing.T) {
+	ex := sampleNotes()[:1]
+	s := System(ex, nil)
+	if !strings.Contains(s, `"example":"<b>فِي</b> الْبَيْتِ."`) || !strings.Contains(s, `"position":1`) {
+		t.Fatalf("system prompt = %s", s)
 	}
 }
