@@ -1,0 +1,100 @@
+{"id":"فِي","digest":"3279d038eb24a6bd"}
+{"id":"مِنْ","digest":"e0ea80002f3e4f89"}
+{"id":"عَلَى","digest":"d0f0708f1da9d733","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"الْكِتَابُ","detail":"CATT reads الْكِتَابِ; CAMeL agrees with the card"}]}
+{"id":"أَنَّ","digest":"ee464df32437d0a1"}
+{"id":"هٰذَا","digest":"1aa9964aa7dda02f"}
+{"id":"كَانَ","digest":"01ba64fe7139d49a"}
+{"id":"لَا","digest":"bb26f3fe34a7887e"}
+{"id":"أَنْ","digest":"f02a76a46b80a589"}
+{"id":"إِلَى","digest":"40702e224f979c9b"}
+{"id":"مَرْحَبًا","digest":"1c369b9cfa0850ef"}
+{"id":"وَ","digest":"864829a9bea350be"}
+{"id":"اَلَّذِي","digest":"c375f15144e86d6d"}
+{"id":"مَا","digest":"c6d6f283a5f8fbee"}
+{"id":"عَنْ","digest":"57c3e55bb31253ed"}
+{"id":"السَّلَامُ عَلَيْكُمْ","digest":"2210cd4ec575bdb0"}
+{"id":"لِـ","digest":"c624a6fa814247b1"}
+{"id":"مَعَ","digest":"e911b8597d68ea6e"}
+{"id":"ذٰلِكَ","digest":"2cd6d9878447ecda"}
+{"id":"هُوَ","digest":"8c8ff8bc27c1d74e"}
+{"id":"شُكْرًا","digest":"d28fcf22041a3375"}
+{"id":"كُلّ","digest":"a58024bc95501d9b"}
+{"id":"قَالَ","digest":"4dac095bd2287049"}
+{"id":"بِـ","digest":"427399188fc3c4aa"}
+{"id":"لٰكِنَّ","digest":"a615d9964e4e6ab4","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"الْبَيْتُ","detail":"CATT reads الْبَيْتِ; CAMeL agrees with the card"}]}
+{"id":"نَعَمْ","digest":"90aebd93d7172e23"}
+{"id":"لَمْ","digest":"1913110aa560f9ec"}
+{"id":"آخَر","digest":"1e06d36c7033f347"}
+{"id":"أَوْ","digest":"b59b1ba7ec84d855"}
+{"id":"لَيْسَ","digest":"07337dd8d73bcf6c"}
+{"id":"وَاحِد","digest":"0caff414594d2e8b"}
+{"id":"أَنَا","digest":"765cfc215805eeb9"}
+{"id":"إِنَّ","digest":"09f4516420f44f52"}
+{"id":"أَيّ","digest":"c0b0a835f7ef2f4e","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"أَيَّ","detail":"CATT reads أَيْ; CAMeL agrees with the card"},{"field":"example","kind":"diacritics","severity":"minor","word":"تُفَضِّلُ","detail":"CATT reads تَفْضُل; CAMeL agrees with the card"}]}
+{"id":"شَيْء","digest":"f41b4c139ff1094c"}
+{"id":"هِيَ","digest":"8473af78432419c2"}
+{"id":"أَمْر","digest":"2d3ea9dde9623397"}
+{"id":"بَعْدَ","digest":"48b30f86f7d9acdd","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"الشَّايَ","detail":"CATT reads الشَّايِ; CAMeL agrees with the card"}]}
+{"id":"يُمْكِنُ","digest":"6df02f56885d560c"}
+{"id":"عَمَل","digest":"574c38813a945615"}
+{"id":"أَهْلًا","digest":"21ae6c388a87c26f"}
+{"id":"أَرَادَ","digest":"4b4df8625ab290a4"}
+{"id":"إِذَا","digest":"37b6af4f4a5b61a5","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"سَنَخْرُجُ","detail":"CATT reads سَنَخْرِجُ; CAMeL agrees with the card"}]}
+{"id":"يَا","digest":"68000db01389c052"}
+{"id":"قَامَ","digest":"be512d46363854c7"}
+{"id":"اِثْنَان","digest":"d0a7f8c74133fa96"}
+{"id":"هُنَاكَ","digest":"81ffc6be5655a0e8"}
+{"id":"لَدَى","digest":"fbf13f02fcabc1e1"}
+{"id":"حَتَّى","digest":"b6ebdb2138ab2d54","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"الْمَسَاءِ","detail":"CATT reads الْمَسَاءَ; CAMeL agrees with the card"}]}
+{"id":"هَلْ","digest":"8516ec7af16817b5","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"الْعَرَبِيَّةَ","detail":"CATT reads الْعَرَبِيَّةُ; CAMeL agrees with the card"}]}
+{"id":"مِنْ فَضْلِكَ","digest":"034cc8d2f0b95c73"}
+{"id":"أَنْتَ","digest":"75411126a9258f5d"}
+{"id":"هُنَا","digest":"2ff4367e4d2963a4"}
+{"id":"نَظَرَ","digest":"ca9b2304e7ae93a2"}
+{"id":"الْآنَ","digest":"cf00b4f95bfecbad"}
+{"id":"بَعْض","digest":"6d39ad4d11ad592c"}
+{"id":"وَقْت","digest":"8849bcf148cddbf6"}
+{"id":"رَجُل","digest":"23b780cc6799da82"}
+{"id":"جَمِيع","digest":"ce43fc514902e8b4"}
+{"id":"قَبْلَ","digest":"aa6d443db428b522","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"وَصَلْتُ","detail":"CATT reads وَصَلَّتْ; CAMeL agrees with the card"}]}
+{"id":"ثَلَاثَة","digest":"03cbbeb089a4d832"}
+{"id":"فَقَطْ","digest":"6b33fa1c4f250c76","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"أُرِيدُ","detail":"CATT reads أُرِيدَ; CAMeL agrees with the card"}]}
+{"id":"غَيْر","digest":"fbda8dad1316dcbf"}
+{"id":"أَوَّل","digest":"1f7dc64ceb83a553"}
+{"id":"أَحَد","digest":"f0c60961f5d603b6"}
+{"id":"عَفْوًا","digest":"120c77a562500471"}
+{"id":"طِفْل","digest":"ce9319436c1b9061"}
+{"id":"رَأَى","digest":"d9c6666e034c096b"}
+{"id":"قَدْ","digest":"dd816cdbdcf0700c"}
+{"id":"مِنْ أَجْلِ","digest":"b78457424381f8ab"}
+{"id":"مَعَ ٱلسَّلَامَةِ","digest":"a545a50ec9195243","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"أَرَاكَ","detail":"CATT reads أَرَاكٌ; CAMeL agrees with the card"}]}
+{"id":"نَفْس","digest":"51f1c4eb22d97912"}
+{"id":"الْيَوْمَ","digest":"64f97c578749a3b9","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"جَمِيلٌ","detail":"CATT reads جَمِيلُ; CAMeL agrees with the card"},{"field":"example","kind":"diacritics","severity":"minor","word":"الْيَوْمَ","detail":"CATT reads الْيَوْمِ; CAMeL agrees with the card"}]}
+{"id":"أَكْثَر","digest":"4ef01760dd0af4dc","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"أُرِيدُ","detail":"CATT reads أُرِيدَ; CAMeL agrees with the card"}]}
+{"id":"لَقَدْ","digest":"a57eea676941550d"}
+{"id":"عَام","digest":"21ea32cbcf938a77","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"تَخَرَّجَ","detail":"CATT reads تُخْرِجُ; CAMeL agrees with the card"}]}
+{"id":"يَوْم","digest":"6d27404fc3b8f1b4"}
+{"id":"سَيِّد","digest":"0df591a5a7afd3cc","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"صَبَاحُ","detail":"CATT reads صَبَاحَ; CAMeL agrees with the card"}]}
+{"id":"بَيْنَ","digest":"f27f75514a7ab7f8","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"وَالْمَطْعَمِ","detail":"CATT reads وَالْمُطْعِمِ; CAMeL agrees with the card"}]}
+{"id":"شَخْص","digest":"db56ac5bc80e8cb7"}
+{"id":"أَرْبَعَة","digest":"1568df5ee28d3d3a","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"أَرْبَعُ","detail":"CATT reads أَرْبَعٌ; CAMeL agrees with the card"}]}
+{"id":"نَحْنُ","digest":"91d5c112cb7678d1"}
+{"id":"عِنْدَ","digest":"5f818df4a880de63"}
+{"id":"حَدَثَ","digest":"83a45608be2482fa","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"حَدَثَ","detail":"CATT reads حَدَّثَ; CAMeL agrees with the card"}]}
+{"id":"أَيْضًا","digest":"12f5ba6e164a50c3"}
+{"id":"كَمَا","digest":"f9472b5a4a4d7b0f"}
+{"id":"وَجَدَ","digest":"48ca3f6eadf580e7"}
+{"id":"عَالَم","digest":"9436ac5d574f5fa3"}
+{"id":"أَفْضَل","digest":"1f197252322e3ba9"}
+{"id":"جَدِيد","digest":"fde0746dc9695b14","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"اِشْتَرَيْتُ","detail":"CATT reads اشْتَرَيْتَ; CAMeL agrees with the card"}]}
+{"id":"إِنْ شَاءَ ٱللّٰهُ","digest":"37fb06d3218be37e"}
+{"id":"مَكَان","digest":"b65beac7307d16b1"}
+{"id":"سَنَة","digest":"f790fbdf6a7efa0f"}
+{"id":"يَجِبُ","digest":"fff69067fc110be5"}
+{"id":"تَمَّ","digest":"a740224603d8564c"}
+{"id":"خَمْسَة","digest":"bdab86dac9ba7e0e"}
+{"id":"اِسْتَطَاعَ","digest":"03de70ab873f1744"}
+{"id":"مِثْل","digest":"d20af1889c1d46ee","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"مِثْلَ","detail":"CATT reads مِثْلُ; CAMeL agrees with the card"}]}
+{"id":"عَرَفَ","digest":"362b7439b77b2f7a"}
+{"id":"فَعَلَ","digest":"984540ecf7ce3496"}
+{"id":"مَاذَا","digest":"ce0211c85930e4f2"}

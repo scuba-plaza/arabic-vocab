@@ -1,0 +1,2 @@
+camel-tools>=1.6
+catt-tashkeel

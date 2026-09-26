@@ -1,0 +1,26 @@
+{
+  "type": "object",
+  "properties": {
+    "arabic": {"type": "string"},
+    "pos": {"type": "string", "enum": ["noun", "verb", "adj", "adv", "prep", "conj", "particle", "pron", "num", "intj", "phrase", "det"]},
+    "english": {"type": "string"},
+    "hint": {"type": "string"},
+    "forms": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "label": {"type": "string"},
+          "arabic": {"type": "string"}
+        },
+        "required": ["label", "arabic"],
+        "additionalProperties": false
+      }
+    },
+    "example": {"type": "string"},
+    "example_en": {"type": "string"},
+    "comment": {"type": "string"}
+  },
+  "required": ["arabic", "pos", "english", "hint", "forms", "example", "example_en", "comment"],
+  "additionalProperties": false
+}
