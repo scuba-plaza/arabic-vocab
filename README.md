@@ -45,10 +45,27 @@ exactly what disagreed:
 | `check::unverified` | The note changed since the last `check`. |
 | `check::audio` | Speech recognition heard something other than the sentence. Listen to the example. |
 
-Once you have looked at a flagged word and it is right, add it to the note's
-`reviewed` list in `notes.jsonl` and the tag disappears on the next build. For
-a flagged clip that sounds right, add the clip's file name (shown on the card
-and by `audio`) to the note's `reviewed_audio` list instead.
+`./arabic-vocab review` walks through every note that still has a flag, one at
+a time:
+
+```
+── 3 of 12 · position 147 ──
+مَوْقِع  (noun) website
+  example  وَجَدْتُ الْمَعْلُومَاتِ عَلَى الْمَوْقِعِ.
+           I found the information on the website.
+
+  1  major  example  وَجَدْتُ  CATT reads وُجِدَتْ; CAMeL reads وُجِدَت
+  2  audio  example  heard: وجدت المعلومات على الموقع
+[a] accept all  [a N] accept flag N  [e] edit  [c] ask Claude Code  [p] play example  [s] skip  [q] quit
+```
+
+Accepting a flag adds the word to the note's `reviewed` list, or the clip to its
+`reviewed_audio` list, and the tag disappears on the next build. `e` opens the
+note in `$VISUAL` or `$EDITOR`; `c` asks Claude Code for a new version and tells
+it what was flagged, and you decide whether to keep it; `p` plays the example
+with `ffplay`. Every decision is saved straight away, so you can quit and come
+back. Edited and rewritten notes are checked again by the next `check`; pass
+`--minor=false` to see only the major flags.
 
 ## Setup
 
@@ -111,6 +128,7 @@ change; Anki updates the existing notes.
 ./arabic-vocab prepare --from 101 --to 300   # note skeletons from Wiktionary
 ./arabic-vocab curate --from 101 --to 300    # glosses and sentences, Claude Code
 ./arabic-vocab check                         # cross-check every vowel
+./arabic-vocab review                        # decide on flagged notes
 ./arabic-vocab audio
 ./arabic-vocab build
 ```

@@ -48,6 +48,7 @@ func newRootCommand() *cobra.Command {
 			"  show       print a curation worksheet for a rank range\n" +
 			"  curate     fill glosses and example sentences with the Claude API\n" +
 			"  check      cross-check every diacritic against CAMeL and CATT\n" +
+			"  review     walk through flagged notes and decide what to do with each\n" +
 			"  voicetest  compare voices on words that differ only in their vowels\n" +
 			"  audio      synthesize word, form and example audio\n" +
 			"  build      write the .apkg\n\n" +
@@ -70,6 +71,7 @@ func newRootCommand() *cobra.Command {
 		newShowCommand(paths),
 		newCurateCommand(paths),
 		newCheckCommand(paths),
+		newReviewCommand(paths),
 		newVoiceTestCommand(paths),
 		newAudioCommand(paths),
 		newBuildCommand(paths),

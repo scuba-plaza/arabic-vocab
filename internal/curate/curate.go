@@ -19,6 +19,11 @@ import (
 	"github.com/scuba-plaza/arabic-vocab/internal/rank"
 )
 
+const (
+	DefaultVocabulary = 1000
+	DefaultExamples   = 8
+)
+
 //go:embed guide.md
 var guide string
 
@@ -77,6 +82,7 @@ type Options struct {
 	Concurrency int
 	Attempts    int
 	System      string
+	Feedback    map[int]string
 	Progress    func(done, total int, n notes.Note, err error)
 	Save        func([]notes.Note) error
 }
@@ -167,7 +173,8 @@ func Prompt(drafts []notes.Note, records map[string]*rank.Record, problems map[i
 			}
 		}
 		if p := problems[n.Position]; p != "" {
-			fmt.Fprintf(&b, "A previous answer for this card was rejected: %s. Correct it.\n", p)
+			b.WriteString(p)
+			b.WriteByte('\n')
 		}
 	}
 	return b.String()
@@ -331,8 +338,15 @@ func Run(ctx context.Context, model Model, ns []notes.Note, targets []int, recor
 				reasons := map[int]string{}
 				for k, i := range pending {
 					drafts[k] = ns[i]
+					var parts []string
+					if f := opts.Feedback[ns[i].Position]; f != "" {
+						parts = append(parts, f)
+					}
 					if p := problems[i]; p != nil {
-						reasons[ns[i].Position] = p.Error()
+						parts = append(parts, "A previous answer for this card was rejected: "+p.Error()+". Correct it.")
+					}
+					if len(parts) > 0 {
+						reasons[ns[i].Position] = strings.Join(parts, "\n")
 					}
 				}
 				mu.Unlock()

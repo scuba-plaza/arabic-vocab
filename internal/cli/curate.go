@@ -54,14 +54,7 @@ func newCurateCommand(paths *deck.Paths) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			byID := map[string]*rank.Record{}
-			var vocab []string
-			for i := range records {
-				byID[records[i].ID] = &records[i]
-				if records[i].Rank <= vocabulary {
-					vocab = append(vocab, records[i].ID)
-				}
-			}
+			byID, system := curateContext(ns, records, vocabulary, examples)
 			targets := curate.Targets(ns, from, to, redo)
 			if len(targets) == 0 {
 				infof("every note in %d..%d already has a gloss and example; pass --redo to write them again\n", from, to)
@@ -72,7 +65,7 @@ func newCurateCommand(paths *deck.Paths) *cobra.Command {
 				Batch:       batch,
 				Concurrency: concurrency,
 				Attempts:    attempts,
-				System:      curate.System(curate.PickExamples(ns, examples), vocab),
+				System:      system,
 				Save:        func(ns []notes.Note) error { return notes.WriteJSONL(paths.Notes(), ns) },
 				Progress: func(done, total int, n notes.Note, err error) {
 					status := n.English
@@ -115,8 +108,20 @@ func newCurateCommand(paths *deck.Paths) *cobra.Command {
 	f.IntVar(&batch, "batch", 10, "notes per request")
 	f.IntVar(&concurrency, "concurrency", 2, "requests running at the same time")
 	f.IntVar(&attempts, "attempts", 2, "requests per note before giving up on a malformed answer")
-	f.IntVar(&vocabulary, "vocabulary", 1000, "offer the model this many top-ranked words to build sentences from")
-	f.IntVar(&examples, "examples", 8, "finished notes to show the model as examples")
+	f.IntVar(&vocabulary, "vocabulary", curate.DefaultVocabulary, "offer the model this many top-ranked words to build sentences from")
+	f.IntVar(&examples, "examples", curate.DefaultExamples, "finished notes to show the model as examples")
 	f.BoolVar(&redo, "redo", false, "also rewrite notes that already have a gloss and example")
 	return cmd
+}
+
+func curateContext(ns []notes.Note, records []rank.Record, vocabulary, examples int) (map[string]*rank.Record, string) {
+	byID := map[string]*rank.Record{}
+	var vocab []string
+	for i := range records {
+		byID[records[i].ID] = &records[i]
+		if records[i].Rank <= vocabulary {
+			vocab = append(vocab, records[i].ID)
+		}
+	}
+	return byID, curate.System(curate.PickExamples(ns, examples), vocab)
 }

@@ -196,16 +196,13 @@ func BuildPackage(ns []notes.Note, checks []notes.Check, audio []notes.AudioChec
 			tags = append(tags, "check::unverified")
 			checkLines = append(checkLines, "Vowels not cross-checked yet.")
 			summary.UnverifiedIDs = append(summary.UnverifiedIDs, n.ID)
-		case c.Digest != n.Digest():
+		case !Current(n, c, ok):
 			tags = append(tags, "check::unverified")
 			checkLines = append(checkLines, "Changed since the vowels were last cross-checked.")
 			summary.UnverifiedIDs = append(summary.UnverifiedIDs, n.ID)
 		default:
 			major, minor := false, false
-			for _, is := range c.Issues {
-				if is.Word != "" && slices.Contains(n.Reviewed, is.Word) {
-					continue
-				}
+			for _, is := range OpenIssues(n, c) {
 				if is.Severity == notes.Major {
 					major = true
 				} else {
@@ -224,11 +221,9 @@ func BuildPackage(ns []notes.Note, checks []notes.Check, audio []notes.AudioChec
 				tags = append(tags, "check::diacritics-minor")
 			}
 		}
-		for _, a := range audioByID[n.ID] {
-			if !a.Match && opts.Audio[a.Text] == a.File && !slices.Contains(n.ReviewedAudio, a.File) {
-				tags = appendUnique(tags, "check::audio")
-				checkLines = append(checkLines, "Speech recognition heard "+markArabic(a.Transcript)+" in the "+strings.ToLower(strings.TrimSuffix(a.Field, "Audio"))+" audio ("+html.EscapeString(a.File)+").")
-			}
+		for _, a := range OpenAudio(n, audioByID[n.ID], opts.Audio) {
+			tags = appendUnique(tags, "check::audio")
+			checkLines = append(checkLines, "Speech recognition heard "+markArabic(a.Transcript)+" in the "+strings.ToLower(strings.TrimSuffix(a.Field, "Audio"))+" audio ("+html.EscapeString(a.File)+").")
 		}
 		if len(checkLines) > 0 {
 			set("Check", "<b>Check:</b><br>"+strings.Join(checkLines, "<br>"))

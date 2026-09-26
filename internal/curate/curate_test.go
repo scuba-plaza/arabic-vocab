@@ -279,3 +279,25 @@ func TestSystemShowsExamplesWithoutEscaping(t *testing.T) {
 		t.Fatalf("system prompt = %s", s)
 	}
 }
+
+func TestRunPassesFeedbackToEveryAttempt(t *testing.T) {
+	ns := sampleNotes()
+	bad := at(kitab, 2)
+	bad.English = ""
+	fake := &fakeModel{respond: func(req Request, call int) (*Response, error) {
+		if !strings.Contains(req.Prompt, "The checker flagged قَرَأْتُ.") {
+			t.Errorf("call %d lacks the feedback:\n%s", call, req.Prompt)
+		}
+		if call == 1 {
+			return answer(bad), nil
+		}
+		if !strings.Contains(req.Prompt, "rejected: english is empty") {
+			t.Errorf("retry lacks the rejection:\n%s", req.Prompt)
+		}
+		return answer(at(kitab, 2)), nil
+	}}
+	res, err := Run(context.Background(), fake, ns, []int{1}, nil, Options{Feedback: map[int]string{2: "The checker flagged قَرَأْتُ."}})
+	if err != nil || res.Curated != 1 || len(fake.requests) != 2 {
+		t.Fatalf("curated %d in %d calls, err %v", res.Curated, len(fake.requests), err)
+	}
+}
