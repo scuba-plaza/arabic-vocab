@@ -41,3 +41,11 @@ deck: build
 clean:
 	rm -f $(BINARY)
 	rm -rf out
+
+COMPDIR := $(HOME)/.local/share/zsh/site-functions
+
+completions: build
+	@mkdir -p $(COMPDIR)
+	./$(BINARY) completion zsh > $(COMPDIR)/_$(BINARY)
+	@rm -f $${ZDOTDIR:-$$HOME}/.zcompdump
+	@echo "installed $(COMPDIR)/_$(BINARY) — restart zsh to pick it up"
