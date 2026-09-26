@@ -29,7 +29,15 @@ example sentence for every word.
 
 `arabic-vocab check` checks every word of every headword, form and sentence:
 
-1. every letter must carry a vowel, sukun or shadda;
+1. every letter must carry its vowel, sukun or shadda, except where none is
+   needed:
+   - letters that are never marked or whose mark is implied: ا, ى, إ, و and
+     ي as long vowels, and the lam of ال;
+   - the last letter of a headword or form, which goes without a case ending;
+   - a letter CAMeL or CATT read without a vowel, such as a left-out sukun or
+     the fatha before a long ا. For the ending of a word in a sentence only
+     CATT's reading of the whole sentence counts, so مِن for مِنْ passes but
+     a sentence ending in جَمِيل instead of جَمِيلٌ does not;
 2. CAMeL Tools' morphological analyzer must accept the vowelling;
 3. in sentences, [CATT](https://github.com/abjadai/catt) vowels the bare
    sentence independently and must agree, with CAMeL's contextual BERT
@@ -67,7 +75,7 @@ leave open become tags in the deck, with the details on the back of the card:
 
 | Tag | Meaning |
 | --- | --- |
-| `check::diacritics` | No independent source supports the vowels, or CAMeL rejects them. |
+| `check::diacritics` | No independent source supports the vowels, CAMeL rejects them, or a vowel mark is missing. |
 | `check::diacritics-minor` | CATT reads a word differently, but CAMeL agrees with the card. Usually CATT is wrong. |
 | `check::unverified` | The note needs a fresh `check`: it is new or changed, or was checked by an older version. |
 | `check::audio` | Speech recognition heard something other than the sentence. |

@@ -341,18 +341,35 @@ func Words(s string) []string {
 type MissingMark struct {
 	Index  int
 	Letter string
+	Ending bool
+}
+
+func endingOf(cs []cluster) int {
+	end := len(cs) - 1
+	if end > 0 && (cs[end].base == alef || cs[end].base == alefMaqsura) {
+		end--
+	}
+	return end
+}
+
+func EndingIndex(word string) int {
+	return endingOf(clusters(word))
 }
 
 func UnmarkedLetters(word string, citation bool) []MissingMark {
 	cs := clusters(word)
+	if n := len(cs); n >= 2 && (cs[n-1].base == alef || cs[n-1].base == alefMaqsura) && cs[n-1].has(Fathatan) {
+		cs[n-2].marks = append(cs[n-2].marks, Fathatan)
+	}
 	var missing []MissingMark
 	art, hasArticle := articleStart(cs)
+	end := endingOf(cs)
 	for i, c := range cs {
 		if c.hasVowel() || c.has(Sukun) || !arabic.IsArabicLetter(c.base) {
 			continue
 		}
 		switch c.base {
-		case alef, alefMaqsura, alefMadda:
+		case alef, alefMaqsura, alefMadda, alefHamzaDn:
 			continue
 		case waw:
 			if i > 0 && cs[i-1].has(Damma) {
@@ -363,14 +380,14 @@ func UnmarkedLetters(word string, citation bool) []MissingMark {
 				continue
 			}
 		case lam:
-			if hasArticle && i == art-1 && (sunLetters[cs[art].base] || cs[art].base == alef) {
+			if hasArticle && i == art-1 {
 				continue
 			}
 		}
 		if i == len(cs)-1 && citation {
 			continue
 		}
-		missing = append(missing, MissingMark{Index: i, Letter: string(c.base)})
+		missing = append(missing, MissingMark{Index: i, Letter: string(c.base), Ending: !citation && i == end})
 	}
 	return missing
 }

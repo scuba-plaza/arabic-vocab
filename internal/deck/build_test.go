@@ -105,6 +105,41 @@ func TestEvaluateSeverity(t *testing.T) {
 	}
 }
 
+func TestEvaluateOnlyFlagsLettersThatNeedAMark(t *testing.T) {
+	a := notes.Note{ID: "a", Arabic: "مَكتَب", Forms: []notes.Form{{Label: "pl.", Arabic: "مَكاتِب"}}, Example: "هٰذَا <b>مَكتَبٌ</b> جَمِيل جِدّاً."}
+	b := notes.Note{ID: "b", Arabic: "إِنْ", Forms: []notes.Form{{Label: "x", Arabic: "مَكتَبَة"}}, Example: "<b>إِن</b> كتَبَ الْوَلَدُ نَجَحَ."}
+	ns := []notes.Note{a, b}
+	results := []CheckResult{
+		{Analyses: [][]string{{"مَكْتَب"}}},
+		{Analyses: [][]string{{"مَكَاتِب"}}},
+		{Analyses: [][]string{{"هٰذا"}, {"مَكْتَبٌ"}, {"جَمِيلٌ", "جَمِيل"}, {"جِدًّا"}}, CATT: []string{"هَذَا", "مَكْتَبٌ", "جَمِيلٌ", "جِدًّا"}, BERT: []string{"هٰذا", "مَكْتَبٌ", "جَمِيلٌ", "جِدًّا"}},
+		{Analyses: [][]string{{"إِنْ"}}},
+		{Analyses: [][]string{nil}},
+		{Analyses: [][]string{{"إِنْ"}, {"كَتَبَ"}, {"الْوَلَدُ"}, {"نَجَحَ"}}, CATT: []string{"إِنْ", "كَتَبَ", "الْوَلَدُ", "نَجَحَ"}, BERT: []string{"إِنْ", "كَتَبَ", "الْوَلَدُ", "نَجَحَ"}},
+	}
+	checks := Evaluate(ns, CheckItems(ns), results)
+	flags := func(c notes.Check) []string {
+		var out []string
+		for _, is := range c.Issues {
+			out = append(out, is.Kind+" "+is.Word)
+		}
+		return out
+	}
+	if got := flags(checks[0]); !slices.Equal(got, []string{"unmarked جَمِيل"}) {
+		t.Fatalf("a missing sukun, a fatha before alif and tanween on the alif need no flag, a missing ending does: %q", got)
+	}
+	ending := checks[0].Issues[0]
+	if !slices.Equal(ending.Missing, []int{3}) || ending.CATT != "جَمِيلٌ" || ending.Detail != "the ending has no vowel mark; CATT reads جَمِيلٌ; CAMeL reads جَمِيلٌ" {
+		t.Errorf("ending issue %+v", ending)
+	}
+	if got := flags(checks[1]); !slices.Equal(got, []string{"unmarked مَكتَبَة", "unknown مَكتَبَة", "unmarked كتَبَ", "invalid كتَبَ"}) {
+		t.Fatalf("a bare letter no reading explains stays flagged, without a diacritics flag that says the same: %q", got)
+	}
+	if vowel := checks[1].Issues[2]; !slices.Equal(vowel.Missing, []int{0}) || !strings.HasPrefix(vowel.Detail, "no vowel mark on ك; CATT reads كَتَبَ") {
+		t.Errorf("missing vowel issue %+v", vowel)
+	}
+}
+
 func TestCardsNeverUseABoldWeight(t *testing.T) {
 	css := NoteType().CSS
 	if !strings.Contains(css, ".card b, .card strong {\n  font-weight: normal;") || strings.Contains(css, "bold") {

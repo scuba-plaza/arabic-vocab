@@ -2,6 +2,7 @@ package review
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -312,20 +313,23 @@ func describe(is notes.Issue, hl string) (string, []row, string) {
 		rows := []row{word("card", is.Word, nil), word("known", strings.Join(is.Known, "، "), nil)}
 		return "CAMeL does not know these vowels for this word", rows, "CAMeL's dictionary has the word, but not with these vowels. Compare with Wiktionary."
 	case "unmarked":
-		return "Some letters have no vowel mark", []row{word("card", is.Word, unmarked(is))}, sentence(is.Detail)
+		rows := []row{word("card", is.Word, bareLetters(is))}
+		if is.CATT != "" {
+			rows = append(rows, word("CATT", is.CATT, tashkeel.Differences(is.Word, is.CATT)))
+		}
+		if is.CAMeL != "" {
+			rows = append(rows, word("CAMeL", is.CAMeL, tashkeel.Differences(is.Word, is.CAMeL)))
+		}
+		if is.Field == "example" && slices.Equal(is.Missing, []int{tashkeel.EndingIndex(is.Word)}) {
+			return "The ending has no vowel mark", rows, "Every word in a sentence carries its ending, the last one too. The audio drops the last word's ending by itself."
+		}
+		return "Some letters have no vowel mark", rows, "No reading from CAMeL or CATT has these letters without a vowel, so one is probably missing."
 	case "unknown":
 		return "CAMeL does not know this word", []row{word("card", is.Word, nil)}, "Only Wiktionary vouches for its vowels, which is usually fine for less common words."
 	case "unchecked":
 		return "CATT could not be compared with this sentence", []row{}, "CATT split the sentence into different words, so its vowels were not compared. Read the sentence yourself."
 	}
 	return is.Kind, []row{word("card", is.Word, nil)}, is.Detail
-}
-
-func sentence(s string) string {
-	if s == "" {
-		return ""
-	}
-	return strings.ToUpper(s[:1]) + s[1:] + "."
 }
 
 func letterSpans(word string, marked []bool, hl string) []span {
@@ -344,11 +348,11 @@ func letterSpans(word string, marked []bool, hl string) []span {
 	return out
 }
 
-func unmarked(is notes.Issue) []bool {
+func bareLetters(is notes.Issue) []bool {
 	out := make([]bool, len(tashkeel.Letters(is.Word)))
-	for _, mm := range tashkeel.UnmarkedLetters(is.Word, is.Field != "example") {
-		if mm.Index < len(out) {
-			out[mm.Index] = true
+	for _, i := range is.Missing {
+		if i >= 0 && i < len(out) {
+			out[i] = true
 		}
 	}
 	return out

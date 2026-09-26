@@ -8,6 +8,7 @@ import (
 	"io"
 	"os/exec"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/scuba-plaza/arabic-vocab/internal/notes"
@@ -85,6 +86,45 @@ func anyCompatible(token string, readings []string, citation bool) bool {
 	return false
 }
 
+func missingDetail(missing []tashkeel.MissingMark, catt, bert string) string {
+	var letters []string
+	ending := false
+	for _, m := range missing {
+		if m.Ending {
+			ending = true
+		} else {
+			letters = append(letters, m.Letter)
+		}
+	}
+	detail := "no vowel mark on " + strings.Join(letters, "، ")
+	switch {
+	case len(letters) == 0:
+		detail = "the ending has no vowel mark"
+	case ending:
+		detail += " and the ending"
+	}
+	if catt != "" {
+		detail += "; CATT reads " + catt
+	}
+	if bert != "" {
+		detail += "; CAMeL reads " + bert
+	}
+	return detail
+}
+
+func restates(token, reading string, missing []tashkeel.MissingMark) bool {
+	diff := tashkeel.Differences(token, reading)
+	if len(diff) == 0 || len(missing) == 0 {
+		return false
+	}
+	for i, d := range diff {
+		if d && !slices.ContainsFunc(missing, func(m tashkeel.MissingMark) bool { return m.Index == i }) {
+			return false
+		}
+	}
+	return true
+}
+
 func sample(analyses []string, n int) string {
 	if len(analyses) > n {
 		analyses = analyses[:n]
@@ -111,19 +151,31 @@ func Evaluate(ns []notes.Note, items []CheckItem, results []CheckResult) []notes
 			add("unchecked", notes.Major, "", "CATT's reading could not be aligned with the sentence")
 		}
 		for t, token := range item.Tokens {
-			if missing := tashkeel.UnmarkedLetters(token, item.Citation); len(missing) > 0 {
-				var letters []string
-				for _, m := range missing {
-					letters = append(letters, m.Letter)
-				}
-				add("unmarked", notes.Major, token, "no vowel mark on "+strings.Join(letters, "، "))
-			}
 			var analyses []string
 			if t < len(res.Analyses) {
 				analyses = res.Analyses[t]
 			}
 			known := len(analyses) > 0
 			valid := known && anyCompatible(token, analyses, item.Citation)
+			catt, bert := "", ""
+			if item.Context && aligned {
+				catt = res.CATT[t]
+			}
+			if item.Context && t < len(res.BERT) {
+				bert = res.BERT[t]
+			}
+			whole := catt != "" && tashkeel.Compatible(token, catt)
+			stem := known && anyCompatible(token, analyses, true) || catt != "" && tashkeel.CompatibleCitation(token, catt)
+			missing := slices.DeleteFunc(tashkeel.UnmarkedLetters(token, item.Citation), func(m tashkeel.MissingMark) bool {
+				return whole || stem && !m.Ending
+			})
+			if len(missing) > 0 {
+				is := add("unmarked", notes.Major, token, missingDetail(missing, catt, bert))
+				is.CATT, is.CAMeL = catt, bert
+				for _, m := range missing {
+					is.Missing = append(is.Missing, m.Index)
+				}
+			}
 			if known && !valid {
 				is := add("invalid", notes.Major, token, "CAMeL does not allow these vowels; it knows "+sample(analyses, 4))
 				is.Known = analyses[:min(len(analyses), 6)]
@@ -134,16 +186,8 @@ func Evaluate(ns []notes.Note, items []CheckItem, results []CheckResult) []notes
 				}
 				continue
 			}
-			if !aligned {
+			if catt == "" || whole || restates(token, catt, missing) {
 				continue
-			}
-			catt := res.CATT[t]
-			if tashkeel.Compatible(token, catt) {
-				continue
-			}
-			bert := ""
-			if t < len(res.BERT) {
-				bert = res.BERT[t]
 			}
 			var is *notes.Issue
 			switch {

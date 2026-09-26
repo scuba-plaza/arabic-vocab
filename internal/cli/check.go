@@ -25,8 +25,10 @@ func newCheckCommand(paths *deck.Paths) *cobra.Command {
 		Use:   "check",
 		Short: "Cross-check every diacritic against CAMeL and CATT",
 		Long: "Check each note's headword, forms and example sentence word by word:\n" +
-			"  - every letter must carry a vowel, sukun or shadda (case endings included\n" +
-			"    in sentences);\n" +
+			"  - every letter must carry its vowel, sukun or shadda, unless it is never\n" +
+			"    marked (a long vowel, the lam of ال, the last letter of a headword) or\n" +
+			"    CAMeL or CATT read it without a vowel; a word's ending in a sentence\n" +
+			"    only passes bare when CATT reads it so;\n" +
 			"  - CAMeL's morphological analyzer must accept the exact vowelling;\n" +
 			"  - in example sentences, CATT's independent vowelling of the bare sentence\n" +
 			"    must agree, with CAMeL's contextual reading reported as a tie-breaker.\n\n" +
