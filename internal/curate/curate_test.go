@@ -78,11 +78,7 @@ func TestRunFillsSelectedNotesInOneBatch(t *testing.T) {
 	}}
 	var saves int
 	opts := Options{System: System(nil, []string{"فِي", "كِتَاب"}), Save: func([]notes.Note) error { saves++; return nil }}
-	targets := Targets(ns, 1, 3, false)
-	if len(targets) != 2 {
-		t.Fatalf("targets = %v, want the two unauthored notes in 1..3", targets)
-	}
-	res, err := Run(context.Background(), fake, ns, targets, sampleRecords(), opts)
+	res, err := Run(context.Background(), fake, ns, []int{1, 2}, sampleRecords(), opts)
 	if err != nil {
 		t.Fatal(err)
 	}

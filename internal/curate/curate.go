@@ -273,16 +273,6 @@ func Apply(n notes.Note, c Card) notes.Note {
 	return n
 }
 
-func Targets(ns []notes.Note, from, to int, redo bool) []int {
-	var out []int
-	for i, n := range ns {
-		if n.Position >= from && n.Position <= to && (redo || !n.Authored()) {
-			out = append(out, i)
-		}
-	}
-	return out
-}
-
 func (u *Usage) add(v Usage) {
 	u.Calls += v.Calls
 	u.Input += v.Input

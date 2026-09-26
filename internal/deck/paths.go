@@ -23,9 +23,10 @@ func (p Paths) Ranked() string               { return filepath.Join(p.Deck, "ran
 func (p Paths) Lexicon() string              { return filepath.Join(p.Deck, "lexicon.jsonl") }
 func (p Paths) Notes() string                { return filepath.Join(p.Deck, "notes.jsonl") }
 func (p Paths) QA() string                   { return filepath.Join(p.Deck, "qa.jsonl") }
+func (p Paths) Settings() string             { return filepath.Join(p.Deck, "deck.json") }
 func (p Paths) Asset(name string) string     { return filepath.Join(p.Deck, "..", "assets", name) }
 func (p Paths) CheckScript() string          { return filepath.Join("scripts", "check.py") }
 func (p Paths) CamelLemmasScript() string    { return filepath.Join("scripts", "camel_lemmas.py") }
 func (p Paths) Package(name string) string   { return filepath.Join("out", name+".apkg") }
-func (p Paths) VoiceTest() string            { return filepath.Join("out", "voicetest") }
+func (p Paths) Voices() string               { return filepath.Join("out", "voices") }
 func (p Paths) MediaFile(name string) string { return filepath.Join(p.Media(), name) }

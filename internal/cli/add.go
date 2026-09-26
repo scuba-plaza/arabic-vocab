@@ -13,60 +13,75 @@ import (
 	"github.com/scuba-plaza/arabic-vocab/internal/rank"
 )
 
-func newCurateCommand(paths *deck.Paths) *cobra.Command {
+func newAddCommand(paths *deck.Paths) *cobra.Command {
 	var (
-		from, to    int
+		words       int
 		claude      string
 		model       string
 		effort      string
 		batch       int
 		concurrency int
-		attempts    int
-		vocabulary  int
-		examples    int
-		redo        bool
 	)
 	cmd := &cobra.Command{
-		Use:   "curate",
-		Short: "Write glosses and example sentences with Claude Code",
-		Long: "Send every note in --from..--to that has no gloss or example yet to Claude\n" +
-			"Code, in batches, together with its Wiktionary entries, and store the\n" +
-			"returned gloss, hint, forms and fully vowelled example sentence in\n" +
-			"notes.jsonl. The model follows internal/curate/guide.md, sees a few finished\n" +
-			"notes as examples, and is asked to build its sentences from the most\n" +
-			"frequent words.\n\n" +
-			"Runs 'claude -p' with your Claude Code login, so a Pro or Max subscription\n" +
-			"is enough; no API key is needed. Usage counts towards your plan's limits.\n" +
-			"notes.jsonl is saved after every note, so a run that stops at a usage limit\n" +
-			"can simply be started again later. Run 'arabic-vocab check' afterwards: the\n" +
-			"model's vowels are cross-checked like any other.",
+		Use:   "add",
+		Short: "Add the next most common words, written by Claude Code",
+		Long: "Add the most common words of the ranked list that the deck does not have yet.\n" +
+			"The headword, its forms, gender and root come from Wiktionary; Claude Code\n" +
+			"writes the English meaning, a hint where the meaning needs one, and a fully\n" +
+			"vowelled example sentence built from common words, following\n" +
+			"internal/curate/guide.md.\n\n" +
+			"Runs 'claude -p' with your Claude Code login, so a Pro or Max subscription is\n" +
+			"enough and no API key is needed; usage counts towards your plan's limits.\n" +
+			"Every finished note is saved straight away. If a run stops early, at a usage\n" +
+			"limit for example, run add again: the words that were not written come first.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if words < 1 {
+				return usagef("--count must be at least 1")
+			}
 			path, err := exec.LookPath(claude)
 			if err != nil {
 				return usagef("%s not found: install Claude Code and log in with 'claude', or pass --claude", claude)
-			}
-			ns, err := loadNotes(paths.Notes())
-			if err != nil {
-				return err
 			}
 			records, err := loadRecords(paths.Lexicon())
 			if err != nil {
 				return err
 			}
-			byID, system := curateContext(ns, records, vocabulary, examples)
-			targets := curate.Targets(ns, from, to, redo)
+			existing, err := notes.ReadJSONL[notes.Note](paths.Notes())
+			if err != nil {
+				return err
+			}
+			if err := notes.Validate(existing); err != nil {
+				return err
+			}
+			notes.Sort(existing)
+			ns, targets := deck.NextWords(existing, records, words)
 			if len(targets) == 0 {
-				infof("every note in %d..%d already has a gloss and example; pass --redo to write them again\n", from, to)
+				infof("every ranked word is in the deck; 'arabic-vocab rank --limit N' ranks more\n")
 				return nil
 			}
-			infof("curating %d notes with Claude Code, %d per request\n", len(targets), batch)
+			kept := map[string]bool{}
+			for _, n := range existing {
+				kept[n.ID] = true
+			}
+			save := func(ns []notes.Note) error {
+				var out []notes.Note
+				for _, n := range ns {
+					if n.Authored() || kept[n.ID] {
+						out = append(out, n)
+					}
+				}
+				return notes.WriteJSONL(paths.Notes(), out)
+			}
+			byID, system := curateContext(ns, records, curate.DefaultVocabulary, curate.DefaultExamples)
+			infof("adding %s, positions %d to %d, with Claude Code (%d per request)\n",
+				count(len(targets), "word", "words"), ns[targets[0]].Position, ns[targets[len(targets)-1]].Position, batch)
 			res, runErr := curate.Run(cmd.Context(), curate.ClaudeCode{Path: path, Model: model, Effort: effort}, ns, targets, byID, curate.Options{
 				Batch:       batch,
 				Concurrency: concurrency,
-				Attempts:    attempts,
+				Attempts:    2,
 				System:      system,
-				Save:        func(ns []notes.Note) error { return notes.WriteJSONL(paths.Notes(), ns) },
+				Save:        save,
 				Progress: func(done, total int, n notes.Note, err error) {
 					status := n.English
 					if err != nil {
@@ -77,7 +92,8 @@ func newCurateCommand(paths *deck.Paths) *cobra.Command {
 			})
 			if res != nil {
 				u := res.Usage
-				infof("curated %d notes in %d requests; tokens: %d input, %d cache reads, %d cache writes, %d output", res.Curated, u.Calls, u.Input, u.CacheRead, u.CacheWrite, u.Output)
+				infof("wrote %s in %s; tokens: %d input, %d cache reads, %d cache writes, %d output",
+					count(res.Curated, "note", "notes"), count(u.Calls, "request", "requests"), u.Input, u.CacheRead, u.CacheWrite, u.Output)
 				if len(u.Models) > 0 {
 					infof("; model %s", strings.Join(u.Models, ", "))
 				}
@@ -88,29 +104,24 @@ func newCurateCommand(paths *deck.Paths) *cobra.Command {
 			}
 			if runErr != nil {
 				if res != nil && res.Curated > 0 {
-					infof("the %d finished notes are saved; run the same command again to continue\n", res.Curated)
+					infof("the finished notes are saved; run 'arabic-vocab add' again to write the rest\n")
 				}
 				return runErr
 			}
 			if len(res.Failed) > 0 {
-				return fmt.Errorf("%d notes could not be curated; they are listed above and stay empty in notes.jsonl", len(res.Failed))
+				return fmt.Errorf("%s could not be written; they are listed above, and the next 'arabic-vocab add' tries them again", count(len(res.Failed), "word", "words"))
 			}
 			infof("next: arabic-vocab check\n")
 			return nil
 		},
 	}
 	f := cmd.Flags()
-	f.IntVar(&from, "from", 1, "first position")
-	f.IntVar(&to, "to", 100, "last position")
+	f.IntVarP(&words, "count", "n", 100, "number of words to add")
 	f.StringVar(&claude, "claude", "claude", "Claude Code executable")
 	f.StringVar(&model, "model", "", "model for Claude Code to use (default: Claude Code's own default)")
 	f.StringVar(&effort, "effort", "", "effort level: low, medium, high, xhigh or max (default: Claude Code's own)")
-	f.IntVar(&batch, "batch", 10, "notes per request")
+	f.IntVar(&batch, "batch", 10, "words per request to Claude Code")
 	f.IntVar(&concurrency, "concurrency", 2, "requests running at the same time")
-	f.IntVar(&attempts, "attempts", 2, "requests per note before giving up on a malformed answer")
-	f.IntVar(&vocabulary, "vocabulary", curate.DefaultVocabulary, "offer the model this many top-ranked words to build sentences from")
-	f.IntVar(&examples, "examples", curate.DefaultExamples, "finished notes to show the model as examples")
-	f.BoolVar(&redo, "redo", false, "also rewrite notes that already have a gloss and example")
 	return cmd
 }
 

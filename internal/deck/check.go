@@ -102,8 +102,9 @@ func Evaluate(ns []notes.Note, items []CheckItem, results []CheckResult) []notes
 	for i, item := range items {
 		res := results[i]
 		check := byID[item.ID]
-		add := func(kind string, sev notes.Severity, word, detail string) {
+		add := func(kind string, sev notes.Severity, word, detail string) *notes.Issue {
 			check.Issues = append(check.Issues, notes.Issue{Field: item.Field, Kind: kind, Severity: sev, Word: word, Detail: detail})
+			return &check.Issues[len(check.Issues)-1]
 		}
 		aligned := len(res.CATT) == len(item.Tokens)
 		if item.Context && !aligned {
@@ -124,7 +125,8 @@ func Evaluate(ns []notes.Note, items []CheckItem, results []CheckResult) []notes
 			known := len(analyses) > 0
 			valid := known && anyCompatible(token, analyses, item.Citation)
 			if known && !valid {
-				add("invalid", notes.Major, token, "CAMeL does not allow these vowels; it knows "+sample(analyses, 4))
+				is := add("invalid", notes.Major, token, "CAMeL does not allow these vowels; it knows "+sample(analyses, 4))
+				is.Known = analyses[:min(len(analyses), 6)]
 			}
 			if !item.Context {
 				if !known {
@@ -143,14 +145,16 @@ func Evaluate(ns []notes.Note, items []CheckItem, results []CheckResult) []notes
 			if t < len(res.BERT) {
 				bert = res.BERT[t]
 			}
+			var is *notes.Issue
 			switch {
 			case bert != "" && tashkeel.Compatible(token, bert) && valid:
-				add("diacritics", notes.Minor, token, "CATT reads "+catt+"; CAMeL agrees with the card")
+				is = add("diacritics", notes.Minor, token, "CATT reads "+catt+"; CAMeL agrees with the card")
 			case bert != "":
-				add("diacritics", notes.Major, token, "CATT reads "+catt+"; CAMeL reads "+bert)
+				is = add("diacritics", notes.Major, token, "CATT reads "+catt+"; CAMeL reads "+bert)
 			default:
-				add("diacritics", notes.Major, token, "CATT reads "+catt)
+				is = add("diacritics", notes.Major, token, "CATT reads "+catt)
 			}
+			is.CATT, is.CAMeL = catt, bert
 		}
 	}
 	out := make([]notes.Check, 0, len(order))

@@ -1,10 +1,12 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -15,32 +17,44 @@ import (
 	"github.com/scuba-plaza/arabic-vocab/internal/rank"
 )
 
-func newFetchCommand(paths *deck.Paths) *cobra.Command {
-	var force bool
-	cmd := &cobra.Command{
-		Use:   "fetch",
-		Short: "Download the Wiktionary dump and frequency lists",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			client := &http.Client{Timeout: 30 * time.Minute}
-			for _, s := range deck.Sources(*paths) {
-				infof("%s ... ", deck.Describe(s))
-				downloaded, err := deck.Fetch(cmd.Context(), client, s, force)
-				if err != nil {
-					infof("failed\n")
-					return err
-				}
-				if downloaded {
-					infof("saved %s\n", s.Path)
-				} else {
-					infof("already present\n")
-				}
-			}
-			return nil
-		},
+const (
+	subtitlesLimit = 50000
+	msaLimit       = 100000
+)
+
+func download(ctx context.Context, paths *deck.Paths, refresh bool) error {
+	client := &http.Client{Timeout: 30 * time.Minute}
+	for _, s := range deck.Sources(*paths) {
+		if st, err := os.Stat(s.Path); err == nil && st.Size() > 0 && !refresh {
+			continue
+		}
+		infof("downloading %s ... ", deck.Describe(s))
+		if _, err := deck.Fetch(ctx, client, s, true); err != nil {
+			infof("failed\n")
+			return err
+		}
+		infof("done\n")
 	}
-	cmd.Flags().BoolVar(&force, "force", false, "download again even if the file exists")
-	return cmd
+	return nil
+}
+
+func analyse(ctx context.Context, paths *deck.Paths, python string, refresh bool) error {
+	out := paths.CamelLemmas()
+	if _, err := os.Stat(out); err == nil && !refresh {
+		return nil
+	}
+	if python == "" {
+		python = defaultPython()
+	}
+	infof("analysing the frequent word forms with CAMeL Tools; this takes a few minutes\n")
+	c := exec.CommandContext(ctx, python, paths.CamelLemmasScript(), out+".partial",
+		fmt.Sprintf("%s:%d", paths.Subtitles(), subtitlesLimit), fmt.Sprintf("%s:%d", paths.MSA(), msaLimit))
+	c.Stdout, c.Stderr = os.Stderr, os.Stderr
+	if err := c.Run(); err != nil {
+		os.Remove(out + ".partial")
+		return fmt.Errorf("running %s %s: %w; 'make venv' sets up CAMeL Tools", python, paths.CamelLemmasScript(), err)
+	}
+	return os.Rename(out+".partial", out)
 }
 
 func openOptional(path string) (*os.File, error) {
@@ -54,7 +68,7 @@ func openOptional(path string) (*os.File, error) {
 func loadLexicon(path string) ([]*lexicon.Lemma, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("%w; run 'arabic-vocab fetch' first", err)
+		return nil, err
 	}
 	defer f.Close()
 	entries, err := lexicon.Read(f)
@@ -65,18 +79,30 @@ func loadLexicon(path string) ([]*lexicon.Lemma, error) {
 }
 
 func newRankCommand(paths *deck.Paths) *cobra.Command {
-	var subsLimit, msaLimit, limit int
+	var (
+		limit   int
+		refresh bool
+		python  string
+	)
 	cmd := &cobra.Command{
 		Use:   "rank",
-		Short: "Order dictionary words by frequency in two corpora",
-		Long: "Map every frequent word form in the subtitle and MSA frequency lists to a\n" +
-			"Wiktionary lemma, once with CAMeL's disambiguator and once with the\n" +
-			"inflection tables in the dump, then blend the two corpora with a geometric\n" +
-			"mean. Writes ranked.tsv and lexicon.jsonl into --deck-dir.\n\n" +
-			"CAMeL's analyses come from scripts/camel_lemmas.py; without them the\n" +
-			"ranking falls back to the inflection tables alone.",
+		Short: "Rank Wiktionary's words by how often they are used",
+		Long: "Order Wiktionary's Arabic words by how often they occur in subtitles and in\n" +
+			"written MSA, and write ranked.tsv and lexicon.jsonl into --deck-dir. The\n" +
+			"deck ships with a ranking, so this is only needed after editing\n" +
+			"essentials.tsv or overrides.tsv, or to rank more than --limit words.\n\n" +
+			"The first run downloads the Wiktionary dump and the frequency lists into\n" +
+			"--cache and has CAMeL Tools analyse every frequent word form, which takes a\n" +
+			"few minutes and needs the Python environment from 'make venv'. Both are kept\n" +
+			"for later runs; --refresh downloads and analyses everything again.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := download(cmd.Context(), paths, refresh); err != nil {
+				return err
+			}
+			if err := analyse(cmd.Context(), paths, python, refresh); err != nil {
+				return err
+			}
 			infof("reading Wiktionary dump\n")
 			lemmas, err := loadLexicon(paths.Kaikki())
 			if err != nil {
@@ -90,10 +116,10 @@ func newRankCommand(paths *deck.Paths) *cobra.Command {
 				name  string
 				path  string
 				limit int
-			}{{"subtitles", paths.Subtitles(), subsLimit}, {"msa", paths.MSA(), msaLimit}} {
+			}{{"subtitles", paths.Subtitles(), subtitlesLimit}, {"msa", paths.MSA(), msaLimit}} {
 				f, err := os.Open(src.path)
 				if err != nil {
-					return fmt.Errorf("%w; run 'arabic-vocab fetch' first", err)
+					return err
 				}
 				c, err := rank.ReadCounts(src.name, f, src.limit)
 				f.Close()
@@ -103,17 +129,14 @@ func newRankCommand(paths *deck.Paths) *cobra.Command {
 				corpora = append(corpora, c)
 			}
 
-			var camel map[string]rank.CamelAnalysis
-			if f, err := openOptional(paths.CamelLemmas()); err != nil {
+			f, err := os.Open(paths.CamelLemmas())
+			if err != nil {
 				return err
-			} else if f != nil {
-				camel, err = rank.ReadCamel(f)
-				f.Close()
-				if err != nil {
-					return err
-				}
-			} else {
-				infof("warning: %s is missing, so homographs are resolved by the inflection tables alone\n", paths.CamelLemmas())
+			}
+			camel, err := rank.ReadCamel(f)
+			f.Close()
+			if err != nil {
+				return err
 			}
 
 			var kelly map[string]rank.KellyWord
@@ -203,8 +226,8 @@ func newRankCommand(paths *deck.Paths) *cobra.Command {
 		},
 	}
 	f := cmd.Flags()
-	f.IntVar(&subsLimit, "subtitles-limit", 50000, "word types to read from the subtitle list")
-	f.IntVar(&msaLimit, "msa-limit", 100000, "word types to read from the MSA list")
-	f.IntVar(&limit, "limit", 5000, "lemmas to keep")
+	f.IntVar(&limit, "limit", 5000, "number of words to rank")
+	f.BoolVar(&refresh, "refresh", false, "download the sources and analyse them again")
+	f.StringVar(&python, "python", "", "Python interpreter with camel-tools (default .venv/bin/python, then python3)")
 	return cmd
 }
