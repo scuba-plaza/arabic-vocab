@@ -2,6 +2,7 @@ package deck
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"slices"
@@ -149,5 +150,53 @@ func TestVoiceTestWritesPlayerPage(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "a", "14.mp3")); err != nil {
 		t.Error(err)
+	}
+}
+
+func TestGenerateAudioKeepsEarlierChecksWhenItFails(t *testing.T) {
+	dir := t.TempDir()
+	a, b := note("كِتَاب", 1), note("قَلَم", 2)
+	previous := []notes.AudioCheck{{ID: a.ID, Field: "ExampleAudio", Text: "old", File: "ar-old.mp3", Match: false}}
+	quota := errors.New("rpc error: code = ResourceExhausted")
+	speak := func(_ context.Context, text, path string) error {
+		if strings.Contains(text, "قَلَم") {
+			return quota
+		}
+		return os.WriteFile(path, []byte(text), 0o644)
+	}
+	opts := AudioOptions{Voice: Voice{Name: "v", Rate: 0.9}, MediaDir: dir, Verify: true, Concurrency: 1}
+	res, err := GenerateAudio(context.Background(), []notes.Note{a, b}, nil, previous, speak, (&fakeVoice{}).listen, opts)
+	if !errors.Is(err, quota) {
+		t.Fatalf("err = %v", err)
+	}
+	if len(res.Checks) != 1 || res.Checks[0].File != "ar-old.mp3" {
+		t.Errorf("a failed run must keep the earlier checks, got %+v", res.Checks)
+	}
+	if res.Synthesized == 0 || len(res.Manifest) != res.Synthesized {
+		t.Errorf("finished clips should stay in the manifest: %+v", res)
+	}
+
+	listenErr := errors.New("speech quota")
+	calls := 0
+	listen := func(_ context.Context, path string) (string, error) {
+		calls++
+		if calls == 2 {
+			return "", listenErr
+		}
+		raw, err := os.ReadFile(path)
+		return string(raw), err
+	}
+	ok := func(_ context.Context, text, path string) error { return os.WriteFile(path, []byte(text), 0o644) }
+	c := note("بَاب", 3)
+	res, err = GenerateAudio(context.Background(), []notes.Note{a, b, c}, res.Manifest, previous, ok, listen, opts)
+	if !errors.Is(err, listenErr) {
+		t.Fatalf("err = %v", err)
+	}
+	ids := map[string]bool{}
+	for _, ch := range res.Checks {
+		ids[ch.ID+" "+ch.File] = true
+	}
+	if len(res.Checks) != 2 || !ids[a.ID+" ar-old.mp3"] {
+		t.Errorf("checks after a failed transcription = %+v", res.Checks)
 	}
 }

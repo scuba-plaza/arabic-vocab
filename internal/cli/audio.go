@@ -119,6 +119,9 @@ func newAudioCommand(paths *deck.Paths) *cobra.Command {
 			}
 			infof("\n")
 			if runErr != nil {
+				if res != nil {
+					infof("%d clips were saved before the error; run the same command again to continue\n", res.Synthesized)
+				}
 				return runErr
 			}
 			infof("%d clips synthesized, %d already present\n", res.Synthesized, res.Reused)

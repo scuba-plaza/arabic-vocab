@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"slices"
 	"sync"
 
 	"golang.org/x/sync/errgroup"
@@ -117,6 +118,7 @@ func GenerateAudio(ctx context.Context, ns []notes.Note, previous []ManifestEntr
 		})
 	}
 	if err := g.Wait(); err != nil {
+		res.Checks = mergeChecks(previousChecks, nil)
 		return res, err
 	}
 
@@ -145,6 +147,7 @@ func GenerateAudio(ctx context.Context, ns []notes.Note, previous []ManifestEntr
 			if !ok || c.File != file {
 				transcript, err := listen(ctx, MediaPath(opts.MediaDir, file))
 				if err != nil {
+					res.Checks = mergeChecks(previousChecks, res.Checks)
 					return res, fmt.Errorf("transcribing %s: %w", file, err)
 				}
 				c = notes.AudioCheck{ID: n.ID, Field: at.Field, Text: at.Text, File: file, Transcript: transcript, Match: TranscriptMatches(at.Text, transcript)}
@@ -156,4 +159,19 @@ func GenerateAudio(ctx context.Context, ns []notes.Note, previous []ManifestEntr
 		}
 	}
 	return res, nil
+}
+
+func mergeChecks(previous, fresh []notes.AudioCheck) []notes.AudioCheck {
+	key := func(c notes.AudioCheck) string { return c.ID + "\x1f" + c.Text }
+	seen := map[string]bool{}
+	for _, c := range fresh {
+		seen[key(c)] = true
+	}
+	out := slices.Clone(fresh)
+	for _, c := range previous {
+		if !seen[key(c)] {
+			out = append(out, c)
+		}
+	}
+	return out
 }

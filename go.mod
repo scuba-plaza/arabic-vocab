@@ -4,7 +4,7 @@ go 1.26.7
 
 require (
 	github.com/anthropics/anthropic-sdk-go v1.75.0
-	github.com/scuba-plaza/arabic-tts v0.0.0-20260926111329-86843ad33ae8
+	github.com/scuba-plaza/arabic-tts v0.0.0-20260926121614-b5f32d85ac6b
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/sync v0.23.0
 	golang.org/x/text v0.42.0

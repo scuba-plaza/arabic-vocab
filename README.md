@@ -92,6 +92,9 @@ text. Example sentences are spoken with a pausal ending, the way a reader stops:
 the last word of each sentence drops its case vowel, so أَمْسِ is read أَمْسْ,
 while the card still shows the full sentence. Every example is transcribed back
 to catch skipped or garbled words; numbers heard as digits count as a match.
+When Google's per-minute quota runs out, `audio` waits and retries for about a
+minute; if it still fails, run the same command again, since finished clips are
+kept.
 
 Import the `.apkg` with File → Import. Rebuild and import again whenever notes
 change; Anki updates the existing notes.
@@ -190,6 +193,7 @@ Suggested deck options for `Arabic::MSA Core`:
 make build   # build ./arabic-vocab
 make test    # offline unit tests; no network, no billing
 make lint    # go vet + gofmt check
+make update  # move to the newest arabic-tts release
 ```
 
 ## Layout
