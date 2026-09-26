@@ -42,7 +42,7 @@ func TestGenerateAudioSynthesizesOnceAndVerifiesExamples(t *testing.T) {
 	good.Forms = []notes.Form{{Label: "pl.", Arabic: "كُتُب"}}
 	bad := note("قَلَم", 2)
 	bad.Example = "هٰذَا <b>قَلَمٌ</b>."
-	fake := &fakeVoice{heard: map[string]string{"هٰذَا قَلَمٌ.": "هذا علم"}}
+	fake := &fakeVoice{heard: map[string]string{"هٰذَا قَلَمْ.": "هذا علم"}}
 	opts := AudioOptions{Voice: Voice{Name: "v", Rate: 0.9}, MediaDir: dir, Verify: true}
 
 	res, err := GenerateAudio(context.Background(), []notes.Note{good, bad}, nil, nil, fake.speak, fake.listen, opts)
@@ -58,6 +58,10 @@ func TestGenerateAudioSynthesizesOnceAndVerifiesExamples(t *testing.T) {
 	i := slices.IndexFunc(res.Checks, func(c notes.AudioCheck) bool { return c.ID == bad.ID })
 	if res.Checks[i].Match {
 		t.Error("a garbled transcript should not match")
+	}
+
+	if !slices.Contains(fake.spoken, "هٰذَا قَلَمْ.") {
+		t.Errorf("the example should be spoken with a pausal ending: %q", fake.spoken)
 	}
 
 	fake.spoken = nil
@@ -85,14 +89,44 @@ func TestGenerateAudioSynthesizesOnceAndVerifiesExamples(t *testing.T) {
 	if !strings.HasPrefix(pkg.Notes[0].Fields[fieldIndex("WordAudio")], "[sound:ar-") {
 		t.Errorf("word audio field = %q", pkg.Notes[0].Fields[fieldIndex("WordAudio")])
 	}
+
+	i = slices.IndexFunc(again.Checks, func(c notes.AudioCheck) bool { return c.ID == bad.ID })
+	if !strings.Contains(pkg.Notes[1].Fields[fieldIndex("Check")], again.Checks[i].File) {
+		t.Errorf("the check line should name the clip: %q", pkg.Notes[1].Fields[fieldIndex("Check")])
+	}
+	bad.ReviewedAudio = []string{again.Checks[i].File}
+	pkg, _, err = BuildPackage([]notes.Note{good, bad}, nil, again.Checks, BuildOptions{Audio: AudioIndex(again.Manifest), MediaDir: dir})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if slices.Contains(pkg.Notes[1].Tags, "check::audio") {
+		t.Errorf("a reviewed clip should not be tagged: %v", pkg.Notes[1].Tags)
+	}
 }
 
-func TestTranscriptMatchesIgnoresVowelsAndPunctuation(t *testing.T) {
-	if !TranscriptMatches("أَنَا مِنْ هُنَا.", "انا من هنا") {
-		t.Error("an unvowelled transcript of the same sentence should match")
+func TestTranscriptMatches(t *testing.T) {
+	cases := []struct {
+		text, transcript string
+		want             bool
+	}{
+		{"أَنَا مِنْ هُنَا.", "انا من هنا", true},
+		{"أَنَا مِنْ هُنَا.", "انا من هناك", false},
+		{"اِثْنَانِ وَاثْنَانِ أَرْبَعَة.", "2 + 2 = 4", true},
+		{"عُمْرِي عِشْرُونَ سَنَة.", "عمري 20 سنه", true},
+		{"اِنْتَظَرْتُ خَمْسَ دَقَائِقْ.", "انتظرت 5 دقائق.", true},
+		{"اِنْتَظَرْتُ خَمْسَ دَقَائِقْ.", "انتظرت ٥ دقائق", true},
+		{"عِنْدِي أَخٌ وَاحِدْ.", "عندي اخ 1", true},
+		{"عُمْرُهُ خَمْسٌ وَعِشْرُونَ سَنَة.", "عمره 25 سنه", true},
+		{"عِنْدِي خَمْسَةَ عَشَرَ كِتَابًا.", "عندي 15 كتابا", true},
+		{"عِنْدِي خَمْسَةَ عَشَرَ كِتَابًا.", "عندي 5 كتابا", false},
+		{"عُمْرِي عِشْرُونَ سَنَة.", "عمري 30 سنه", false},
+		{"ذَهَبْتُ إِلَى السُّوقْ.", "فذهبت الى السوق.", false},
+		{"كَانَ الْجَوُّ جَمِيلًا أَمْسْ.", "كان الجو جميلا امسي.", false},
 	}
-	if TranscriptMatches("أَنَا مِنْ هُنَا.", "انا من هناك") {
-		t.Error("a different word should not match")
+	for _, tc := range cases {
+		if got := TranscriptMatches(tc.text, tc.transcript); got != tc.want {
+			t.Errorf("TranscriptMatches(%q, %q) = %v", tc.text, tc.transcript, got)
+		}
 	}
 }
 

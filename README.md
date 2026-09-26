@@ -43,10 +43,12 @@ exactly what disagreed:
 | `check::diacritics` | No independent source supports the vowels, or CAMeL rejects them. Look at these. |
 | `check::diacritics-minor` | CATT reads a word differently, but CAMeL agrees with the card. Usually CATT is wrong. |
 | `check::unverified` | The note changed since the last `check`. |
-| `check::audio` | Speech recognition heard something other than the sentence. |
+| `check::audio` | Speech recognition heard something other than the sentence. Listen to the example. |
 
 Once you have looked at a flagged word and it is right, add it to the note's
-`reviewed` list in `notes.jsonl` and the tag disappears on the next build.
+`reviewed` list in `notes.jsonl` and the tag disappears on the next build. For
+a flagged clip that sounds right, add the clip's file name (shown on the card
+and by `audio`) to the note's `reviewed_audio` list instead.
 
 ## Setup
 
@@ -83,10 +85,13 @@ finished notes, so building the deck only needs audio:
 ```
 
 `voicetest` synthesizes words that differ only in their vowels (عَلِمَ, عَلَّمَ,
-عُلِمَ …) with several voices. Pick the voice that follows the marks. `audio`
-names each clip after a hash of voice, rate and text, so re-running it only
-synthesizes new or changed text, and it transcribes every example sentence
-back to catch skipped or garbled words.
+عُلِمَ …) with several voices. Pick the voice that follows the marks, and pass
+the same `--voice` every time you run `audio`. `audio` names each clip after a
+hash of voice, rate and text, so re-running it only synthesizes new or changed
+text. Example sentences are spoken with a pausal ending, the way a reader stops:
+the last word of each sentence drops its case vowel, so أَمْسِ is read أَمْسْ,
+while the card still shows the full sentence. Every example is transcribed back
+to catch skipped or garbled words; numbers heard as digits count as a match.
 
 Import the `.apkg` with File → Import. Rebuild and import again whenever notes
 change; Anki updates the existing notes.
@@ -132,6 +137,7 @@ directly:
 | `example`, `example_en` | Sentence with the word in `<b>…</b>`, and its translation. |
 | `production` | `true` or `false` to override the production-card cut-off. |
 | `reviewed` | Flagged words you have checked by hand. |
+| `reviewed_audio` | Flagged audio clips you have listened to, by file name. |
 
 ## Re-ranking
 

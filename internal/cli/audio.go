@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -31,10 +32,14 @@ func newAudioCommand(paths *deck.Paths) *cobra.Command {
 		Long: "Synthesize three clips per note (headword, forms, example sentence) from\n" +
 			"the fully vowelled text, as MP3 in --cache/media. Clips are named after a\n" +
 			"hash of voice, rate and text, so re-running only synthesizes what changed.\n\n" +
+			"Example sentences are spoken with a pausal ending, as a reader stops: the\n" +
+			"last word of each sentence drops its case vowel (أَمْسِ is read أَمْسْ).\n\n" +
 			"With --verify (the default) every example clip is transcribed back with\n" +
 			"speech-to-text; a transcript that does not match the sentence tags the note\n" +
 			"check::audio. Transcripts carry no vowels, so this catches skipped, garbled\n" +
-			"or invented words, not wrong vowels; pick a voice with 'arabic-vocab voicetest'.",
+			"or invented words, not wrong vowels; pick a voice with 'arabic-vocab voicetest'.\n" +
+			"Once you have listened to a flagged clip and it sounds right, add its file\n" +
+			"name to the note's reviewed_audio list.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ns, err := loadNotes(paths.Notes())
@@ -116,11 +121,29 @@ func newAudioCommand(paths *deck.Paths) *cobra.Command {
 			if runErr != nil {
 				return runErr
 			}
-			infof("%d clips synthesized, %d already present", res.Synthesized, res.Reused)
+			infof("%d clips synthesized, %d already present\n", res.Synthesized, res.Reused)
 			if verify {
-				infof("; %d example clips did not transcribe back to their sentence", res.Mismatches)
+				byID := map[string]notes.Note{}
+				for _, n := range ns {
+					byID[n.ID] = n
+				}
+				var flagged []notes.AudioCheck
+				for _, c := range res.Checks {
+					if !c.Match && !slices.Contains(byID[c.ID].ReviewedAudio, c.File) {
+						flagged = append(flagged, c)
+					}
+				}
+				if len(flagged) == 0 {
+					infof("every example clip transcribed back to its sentence\n")
+				} else {
+					infof("%d example clips did not transcribe back to their sentence; listen to them, and add the file of any that sound right to the note's reviewed_audio:\n", len(flagged))
+					out := cmd.OutOrStdout()
+					for _, c := range flagged {
+						fmt.Fprintf(out, "%d\t%s\t%s\theard: %s\n", byID[c.ID].Position, c.ID, c.File, c.Transcript)
+					}
+				}
 			}
-			infof("\nnext: arabic-vocab build\n")
+			infof("next: arabic-vocab build\n")
 			return nil
 		},
 	}
