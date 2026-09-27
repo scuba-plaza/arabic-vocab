@@ -76,6 +76,7 @@ type entryView struct {
 	Flags      []flagView   `json:"flags"`
 	Proposal   *notes.Note  `json:"proposal,omitempty"`
 	Changes    []changeView `json:"changes,omitempty"`
+	Fixes      []endingFix  `json:"fixes,omitempty"`
 	Audio      audioView    `json:"audio"`
 }
 
@@ -154,6 +155,9 @@ func (s *session) entryView(i int) entryView {
 	}
 	if e.proposal != nil {
 		v.Changes = changes(n, *e.proposal)
+	}
+	if e.state == open {
+		v.Fixes = endingFixes(n, e.Issues)
 	}
 	if s.opts.Clip != nil {
 		v.Audio = audioView{Sentence: s.opts.Clip(n, "ExampleAudio") != "", Word: s.opts.Clip(n, "WordAudio") != ""}

@@ -148,10 +148,17 @@ func (s *session) act(w http.ResponseWriter, r *http.Request, finish func()) {
 		res, err = s.keep(i)
 	case "save":
 		var n notes.Note
-		if n, err = decodeNote(http.MaxBytesReader(w, r.Body, 1<<20)); err == nil {
+		if n, err = decode[notes.Note](http.MaxBytesReader(w, r.Body, 1<<20)); err == nil {
 			res, err = s.save(i, n)
 		} else {
 			err = userErrorf("the note could not be read: %v", err)
+		}
+	case "ending":
+		var body endingRequest
+		if body, err = decode[endingRequest](http.MaxBytesReader(w, r.Body, 1<<10)); err == nil {
+			res, err = s.ending(i, body.Source)
+		} else {
+			err = userErrorf("the request could not be read: %v", err)
 		}
 	case "use":
 		res, err = s.use(i)
@@ -182,12 +189,16 @@ func (s *session) act(w http.ResponseWriter, r *http.Request, finish func()) {
 	writeJSON(w, http.StatusOK, res)
 }
 
-func decodeNote(r io.Reader) (notes.Note, error) {
-	var n notes.Note
+type endingRequest struct {
+	Source string `json:"source"`
+}
+
+func decode[T any](r io.Reader) (T, error) {
+	var v T
 	dec := json.NewDecoder(r)
 	dec.DisallowUnknownFields()
-	err := dec.Decode(&n)
-	return n, err
+	err := dec.Decode(&v)
+	return v, err
 }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {

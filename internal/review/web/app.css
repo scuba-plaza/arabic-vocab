@@ -920,6 +920,12 @@ select:focus {
   margin-left: auto;
 }
 
+.action .ar {
+  font-size: 1.45em;
+  line-height: 1;
+  color: var(--tone, var(--text));
+}
+
 @media (max-width: 1320px) {
   .stage {
     grid-template-columns: minmax(0, 1fr);

@@ -165,6 +165,33 @@ func TestUnmarkedLettersNameTheEnding(t *testing.T) {
 	}
 }
 
+func TestEndingMarksTakesOnlyTheReadingsEnding(t *testing.T) {
+	cases := []struct {
+		word, reading, want string
+	}{
+		{"جَمِيل", "جَمِيلٌ", "جَمِيلٌ"},
+		{"تَعِب", "تَعَبٌ", "تَعِبٌ"},
+		{"كِتَابا", "كِتَاباً", "كِتَابًا"},
+		{"عَامّ", "عَامٌّ", "عَامٌّ"},
+		{"مِن", "مِنْ", "مِنْ"},
+	}
+	for _, c := range cases {
+		at, marks, ok := EndingMarks(c.word, c.reading)
+		if !ok {
+			t.Errorf("EndingMarks(%q, %q) found no ending", c.word, c.reading)
+			continue
+		}
+		if got := string(slices.Insert([]rune(c.word), at, marks...)); got != c.want {
+			t.Errorf("EndingMarks(%q, %q) gives %q, want %q", c.word, c.reading, got, c.want)
+		}
+	}
+	for _, reading := range []string{"جَمِيلَة", "جَمِيل", "كَبِير"} {
+		if _, _, ok := EndingMarks("جَمِيل", reading); ok {
+			t.Errorf("EndingMarks(جَمِيل, %q) should find nothing to take", reading)
+		}
+	}
+}
+
 func TestCompatibleTreatsUnmarkedLettersAsUnspecified(t *testing.T) {
 	agree := [][2]string{
 		{"أُرِيدُ", "أُرِيد"},

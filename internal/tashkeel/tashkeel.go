@@ -356,6 +356,49 @@ func EndingIndex(word string) int {
 	return endingOf(clusters(word))
 }
 
+func EndingMarks(word, reading string) (int, []rune, bool) {
+	w, r := clusters(word), clusters(reading)
+	if len(w) == 0 || len(w) != len(r) {
+		return 0, nil, false
+	}
+	for i := range w {
+		if w[i].base != r[i].base {
+			return 0, nil, false
+		}
+	}
+	end := endingOf(w)
+	var marks []rune
+	add := func(m rune) {
+		if !slices.Contains(marks, m) {
+			marks = append(marks, m)
+		}
+	}
+	for _, m := range r[end].marks {
+		if m == Sukun || isVowel(m) && m != Dagger {
+			add(m)
+		}
+	}
+	if end == len(r)-2 && r[end+1].has(Fathatan) {
+		add(Fathatan)
+	}
+	if len(marks) == 0 {
+		return 0, nil, false
+	}
+	runes := []rune(word)
+	letters, at := 0, len(runes)
+	for k, c := range runes {
+		if IsMark(c) || c == Tatweel {
+			continue
+		}
+		if letters == end+1 {
+			at = k
+			break
+		}
+		letters++
+	}
+	return at, marks, true
+}
+
 func UnmarkedLetters(word string, citation bool) []MissingMark {
 	cs := clusters(word)
 	if n := len(cs); n >= 2 && (cs[n-1].base == alef || cs[n-1].base == alefMaqsura) && cs[n-1].has(Fathatan) {

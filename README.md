@@ -62,6 +62,7 @@ has a key that also works with an Arabic keyboard layout:
 | --- | --- |
 | `enter` | The card is right. Its flags go to the note's `reviewed` and `reviewed_audio` lists and stay out of the next build. |
 | `e` | Edit the note in a form, with a live preview of the card. |
+| `1`, `2` | On a missing ending: add the ending CATT or CAMeL reads to the card's word, keeping its other vowels. The button shows the result, and when both read the same ending there is only `1`. |
 | `c` | Ask Claude Code for a better version. It is told what was flagged, works in the background while you carry on, and shows its version as a diff for you to keep (`y`) or not (`n`). |
 | `p`, `w` | Listen to the sentence or the word. |
 | `←` `→` | Move between notes; skipped notes come round again at the end. |
@@ -147,7 +148,8 @@ Claude Code login and needs no API key. Ten words go into each request
 (`--batch`); `--model` picks a model other than Claude Code's default. The
 instructions the model follows are in `internal/curate/guide.md`; it also sees
 eight finished notes as examples and the 1,000 most frequent words to build its
-sentences from. Answers that break the format are sent back once with the
+sentences from. Answers that break the format, or whose sentence leaves a
+word's case or mood ending without a vowel mark, are sent back once with the
 reason.
 
 Usage counts towards your plan's limits, so add a few hundred words at a time.

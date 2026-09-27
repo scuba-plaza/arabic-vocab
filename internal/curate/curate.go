@@ -17,6 +17,7 @@ import (
 
 	"github.com/scuba-plaza/arabic-vocab/internal/notes"
 	"github.com/scuba-plaza/arabic-vocab/internal/rank"
+	"github.com/scuba-plaza/arabic-vocab/internal/tashkeel"
 )
 
 const (
@@ -217,6 +218,16 @@ func arabicOnly(field, s string) error {
 	return nil
 }
 
+func bareEndings(sentence string) []string {
+	var out []string
+	for _, w := range tashkeel.Words(sentence) {
+		if slices.ContainsFunc(tashkeel.UnmarkedLetters(w, false), func(m tashkeel.MissingMark) bool { return m.Ending }) {
+			out = append(out, w)
+		}
+	}
+	return out
+}
+
 func Validate(c Card) error {
 	if strings.TrimSpace(c.English) == "" {
 		return errors.New("english is empty")
@@ -239,8 +250,12 @@ func Validate(c Card) error {
 	if strings.TrimSpace(c.Example[min(start+len("<b>"), end):end]) == "" {
 		return errors.New("the <b>…</b> in the example is empty")
 	}
-	if err := arabicOnly("the example", strings.NewReplacer("<b>", "", "</b>", "").Replace(c.Example)); err != nil {
+	plain := strings.NewReplacer("<b>", "", "</b>", "").Replace(c.Example)
+	if err := arabicOnly("the example", plain); err != nil {
 		return err
+	}
+	if bare := bareEndings(plain); len(bare) > 0 {
+		return fmt.Errorf("the example leaves the ending of %s without a vowel mark, but every word needs its case or mood ending, the last one too", strings.Join(bare, "، "))
 	}
 	if strings.TrimSpace(c.ExampleEn) == "" {
 		return errors.New("example_en is empty")

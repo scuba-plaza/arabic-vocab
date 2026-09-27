@@ -7,6 +7,7 @@ const POS_LABEL = {
 };
 const GENDER_LABEL = { m: 'masc.', f: 'fem.', 'm+f': 'masc./fem.' };
 const KEY_LABEL = { enter: 'enter', esc: 'esc', left: '←', right: '→', 'ctrl+enter': 'ctrl+enter' };
+const FIX_LABEL = { catt: 'Use CATT\'s ending', camel: 'Use CAMeL\'s ending', both: 'Add the ending' };
 
 const state = {
   view: null,
@@ -352,6 +353,15 @@ function actions() {
       { key: 'enter', label: e.state === 'open' ? 'Card is right' : 'Next open note', run: () => act('keep'), primary: true },
       { key: 'e', label: 'Edit', run: () => startEdit(false) },
     );
+    (e.fixes || []).forEach((f, k) => {
+      list.push({
+        key: String(k + 1),
+        label: FIX_LABEL[f.source] + (f.words.length > 1 ? 's' : ''),
+        arabic: f.words.join(' '),
+        run: () => act('ending', { source: f.source }),
+        tone: 'good',
+      });
+    });
     if (e.state === 'open' || e.state === 'kept') {
       if (e.asking) {
         list.push({ key: 'esc', label: 'Stop Claude Code', run: () => act('stop'), tone: 'claude' });
@@ -380,6 +390,7 @@ function keyOf(ev) {
   if (ev.key === 'ArrowLeft') return 'left';
   if (ev.key === 'ArrowRight') return 'right';
   if (ev.code && ev.code.startsWith('Key')) return ev.code.slice(3).toLowerCase();
+  if (/^(Digit|Numpad)\d$/.test(ev.code || '')) return ev.code.slice(-1);
   return '';
 }
 
@@ -463,7 +474,7 @@ function actionButton(a) {
   if (a.primary) cls += ' primary';
   if (a.tone) cls += ' tone-' + a.tone;
   if (a.push) cls += ' push';
-  const button = el('button', cls, el('kbd', null, KEY_LABEL[a.key] || a.key), el('span', null, a.label));
+  const button = el('button', cls, el('kbd', null, KEY_LABEL[a.key] || a.key), el('span', null, a.label), a.arabic ? arabic('', [{ t: a.arabic }]) : null);
   button.type = 'button';
   button.addEventListener('click', () => run(a));
   return button;
