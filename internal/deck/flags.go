@@ -13,7 +13,7 @@ func IssueKey(is notes.Issue) string {
 	return is.Field + ":" + is.Kind
 }
 
-const CheckVersion = 2
+const CheckVersion = 3
 
 func Current(n notes.Note, c notes.Check, ok bool) bool {
 	return ok && c.Version == CheckVersion && c.Digest == n.Digest()

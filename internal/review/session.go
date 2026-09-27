@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -193,6 +194,37 @@ func (s *session) drop(i int) (result, error) {
 	}
 	e.proposal = nil
 	return result{Message: "Kept your version of " + s.ns[e.Index].Arabic, Show: i}, nil
+}
+
+func (s *session) ending(i int, source string) (result, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	e, err := s.entry(i)
+	if err != nil {
+		return result{}, err
+	}
+	var fix *endingFix
+	if e.state == open {
+		for _, f := range endingFixes(s.ns[e.Index], e.Issues) {
+			if f.Source == source {
+				fix = &f
+			}
+		}
+	}
+	if fix == nil {
+		return result{}, userErrorf("there is no ending to add to this note from %s", source)
+	}
+	n := clone(s.ns[e.Index])
+	n.Example = fix.Example
+	if err := s.replace(i, n, edited); err != nil {
+		return result{}, err
+	}
+	whose := map[string]string{"catt": "CATT's", "camel": "CAMeL's", "both": "the"}[source]
+	what := " ending: "
+	if len(fix.Words) > 1 {
+		what = " endings: "
+	}
+	return result{Message: "✎ Added " + whose + what + strings.Join(fix.Words, " ") + "; run check again before building", Tone: "good", Show: s.nextOpen(i)}, nil
 }
 
 func (s *session) ask(i int) (result, error) {

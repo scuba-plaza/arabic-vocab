@@ -29,7 +29,15 @@ example sentence for every word.
 
 `arabic-vocab check` checks every word of every headword, form and sentence:
 
-1. every letter must carry a vowel, sukun or shadda;
+1. every letter must carry its vowel, sukun or shadda, except where none is
+   needed:
+   - letters that are never marked or whose mark is implied: ا, ى, إ, و and
+     ي as long vowels, and the lam of ال;
+   - the last letter of a headword or form, which goes without a case ending;
+   - a letter CAMeL or CATT read without a vowel, such as a left-out sukun or
+     the fatha before a long ا. For the ending of a word in a sentence only
+     CATT's reading of the whole sentence counts, so مِن for مِنْ passes but
+     a sentence ending in جَمِيل instead of جَمِيلٌ does not;
 2. CAMeL Tools' morphological analyzer must accept the vowelling;
 3. in sentences, [CATT](https://github.com/abjadai/catt) vowels the bare
    sentence independently and must agree, with CAMeL's contextual BERT
@@ -54,6 +62,7 @@ has a key that also works with an Arabic keyboard layout:
 | --- | --- |
 | `enter` | The card is right. Its flags go to the note's `reviewed` and `reviewed_audio` lists and stay out of the next build. |
 | `e` | Edit the note in a form, with a live preview of the card. |
+| `1`, `2` | On a missing ending: add the ending CATT or CAMeL reads to the card's word, keeping its other vowels. The button shows the result, and when both read the same ending there is only `1`. |
 | `c` | Ask Claude Code for a better version. It is told what was flagged, works in the background while you carry on, and shows its version as a diff for you to keep (`y`) or not (`n`). |
 | `p`, `w` | Listen to the sentence or the word. |
 | `←` `→` | Move between notes; skipped notes come round again at the end. |
@@ -67,7 +76,7 @@ leave open become tags in the deck, with the details on the back of the card:
 
 | Tag | Meaning |
 | --- | --- |
-| `check::diacritics` | No independent source supports the vowels, or CAMeL rejects them. |
+| `check::diacritics` | No independent source supports the vowels, CAMeL rejects them, or a vowel mark is missing. |
 | `check::diacritics-minor` | CATT reads a word differently, but CAMeL agrees with the card. Usually CATT is wrong. |
 | `check::unverified` | The note needs a fresh `check`: it is new or changed, or was checked by an older version. |
 | `check::audio` | Speech recognition heard something other than the sentence. |
@@ -139,7 +148,8 @@ Claude Code login and needs no API key. Ten words go into each request
 (`--batch`); `--model` picks a model other than Claude Code's default. The
 instructions the model follows are in `internal/curate/guide.md`; it also sees
 eight finished notes as examples and the 1,000 most frequent words to build its
-sentences from. Answers that break the format are sent back once with the
+sentences from. Answers that break the format, or whose sentence leaves a
+word's case or mood ending without a vowel mark, are sent back once with the
 reason.
 
 Usage counts towards your plan's limits, so add a few hundred words at a time.

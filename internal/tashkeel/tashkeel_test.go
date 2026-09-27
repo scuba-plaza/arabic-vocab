@@ -115,7 +115,14 @@ func TestUnmarkedLetters(t *testing.T) {
 		{"كِتَاب", false, []string{"ب"}},
 		{"الشَّمْسُ", false, nil},
 		{"الْقَمَرُ", false, nil},
-		{"القَمَرُ", false, []string{"ل"}},
+		{"القَمَرُ", false, nil},
+		{"بِالكِتَابِ", false, nil},
+		{"لِلكِتَابِ", false, nil},
+		{"الخَيْر", true, nil},
+		{"إسْلَامٌ", false, nil},
+		{"جِدّاً", false, nil},
+		{"جِدّا", false, []string{"د"}},
+		{"مَكتَب", true, []string{"ك"}},
 		{"يَقُولُ", false, nil},
 		{"كتب", false, []string{"ك", "ت", "ب"}},
 		{"فِي", false, nil},
@@ -130,6 +137,57 @@ func TestUnmarkedLetters(t *testing.T) {
 		}
 		if !slices.Equal(got, c.missing) {
 			t.Errorf("UnmarkedLetters(%q, %v) = %q, want %q", c.word, c.citation, got, c.missing)
+		}
+	}
+}
+
+func TestUnmarkedLettersNameTheEnding(t *testing.T) {
+	cases := []struct {
+		word    string
+		missing []MissingMark
+	}{
+		{"جَمِيل", []MissingMark{{Index: 3, Letter: "ل", Ending: true}}},
+		{"كِتَابا", []MissingMark{{Index: 3, Letter: "ب", Ending: true}}},
+		{"مَكتَبٌ", []MissingMark{{Index: 1, Letter: "ك"}}},
+	}
+	for _, c := range cases {
+		if got := UnmarkedLetters(c.word, false); !slices.Equal(got, c.missing) {
+			t.Errorf("UnmarkedLetters(%q) = %+v, want %+v", c.word, got, c.missing)
+		}
+	}
+	if got := UnmarkedLetters("جَمِيل", true); got != nil {
+		t.Errorf("a headword has no ending to mark, got %+v", got)
+	}
+	for word, want := range map[string]int{"جَمِيلٌ": 3, "كِتَابًا": 3, "فِي": 1, "مُسْتَشْفًى": 4} {
+		if got := EndingIndex(word); got != want {
+			t.Errorf("EndingIndex(%q) = %d, want %d", word, got, want)
+		}
+	}
+}
+
+func TestEndingMarksTakesOnlyTheReadingsEnding(t *testing.T) {
+	cases := []struct {
+		word, reading, want string
+	}{
+		{"جَمِيل", "جَمِيلٌ", "جَمِيلٌ"},
+		{"تَعِب", "تَعَبٌ", "تَعِبٌ"},
+		{"كِتَابا", "كِتَاباً", "كِتَابًا"},
+		{"عَامّ", "عَامٌّ", "عَامٌّ"},
+		{"مِن", "مِنْ", "مِنْ"},
+	}
+	for _, c := range cases {
+		at, marks, ok := EndingMarks(c.word, c.reading)
+		if !ok {
+			t.Errorf("EndingMarks(%q, %q) found no ending", c.word, c.reading)
+			continue
+		}
+		if got := string(slices.Insert([]rune(c.word), at, marks...)); got != c.want {
+			t.Errorf("EndingMarks(%q, %q) gives %q, want %q", c.word, c.reading, got, c.want)
+		}
+	}
+	for _, reading := range []string{"جَمِيلَة", "جَمِيل", "كَبِير"} {
+		if _, _, ok := EndingMarks("جَمِيل", reading); ok {
+			t.Errorf("EndingMarks(جَمِيل, %q) should find nothing to take", reading)
 		}
 	}
 }

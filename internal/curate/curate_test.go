@@ -223,6 +223,9 @@ func TestValidate(t *testing.T) {
 		{"no bold", func(c *Card) { c.Example = "قَرَأْتُ الْكِتَابَ." }, "exactly one <b>…</b>"},
 		{"empty bold", func(c *Card) { c.Example = "قَرَأْتُ <b> </b> الْكِتَابَ." }, "is empty"},
 		{"other markup", func(c *Card) { c.Example = "<i>قَرَأْتُ</i> <b>الْكِتَابَ</b>." }, "contains markup"},
+		{"bare ending", func(c *Card) { c.Example = "قَرَأْتُ <b>الْكِتَاب</b> أَمْس." }, "the ending of الْكِتَاب، أَمْس without a vowel mark"},
+		{"ending after the bold", func(c *Card) { c.Example = "قَرَأْتُ <b>الْكِتَاب</b>َ أَمْسِ." }, ""},
+		{"tanween on the alif", func(c *Card) { c.Example = "قَرَأْتُ <b>كِتَاباً</b> أَمْسِ." }, ""},
 		{"unlabelled form", func(c *Card) { c.Forms = []notes.Form{{Arabic: "كُتُب"}} }, "has no label"},
 		{"no translation", func(c *Card) { c.ExampleEn = "" }, "example_en is empty"},
 	}

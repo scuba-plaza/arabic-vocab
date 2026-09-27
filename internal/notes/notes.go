@@ -77,6 +77,7 @@ type Issue struct {
 	CATT     string   `json:"catt,omitempty"`
 	CAMeL    string   `json:"camel,omitempty"`
 	Known    []string `json:"known,omitempty"`
+	Missing  []int    `json:"missing,omitempty"`
 }
 
 type Check struct {
