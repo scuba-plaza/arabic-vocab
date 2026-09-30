@@ -1,400 +1,100 @@
-{"id":"فِي","version":2,"digest":"3279d038eb24a6bd"}
-{"id":"مِنْ","version":2,"digest":"e0ea80002f3e4f89"}
-{"id":"عَلَى","version":2,"digest":"d0f0708f1da9d733","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"الْكِتَابُ","detail":"CATT reads الْكِتَابِ; CAMeL agrees with the card","catt":"الْكِتَابِ","camel":"الكِتابُ"}]}
-{"id":"أَنَّ","version":2,"digest":"ee464df32437d0a1"}
-{"id":"هٰذَا","version":2,"digest":"1aa9964aa7dda02f"}
-{"id":"كَانَ","version":2,"digest":"01ba64fe7139d49a"}
-{"id":"لَا","version":2,"digest":"bb26f3fe34a7887e"}
-{"id":"أَنْ","version":2,"digest":"f02a76a46b80a589"}
-{"id":"إِلَى","version":2,"digest":"40702e224f979c9b"}
-{"id":"مَرْحَبًا","version":2,"digest":"1c369b9cfa0850ef"}
-{"id":"وَ","version":2,"digest":"864829a9bea350be"}
-{"id":"اَلَّذِي","version":2,"digest":"c375f15144e86d6d"}
-{"id":"مَا","version":2,"digest":"c6d6f283a5f8fbee"}
-{"id":"عَنْ","version":2,"digest":"57c3e55bb31253ed"}
-{"id":"السَّلَامُ عَلَيْكُمْ","version":2,"digest":"2210cd4ec575bdb0"}
-{"id":"لِـ","version":2,"digest":"c624a6fa814247b1"}
-{"id":"مَعَ","version":2,"digest":"e911b8597d68ea6e"}
-{"id":"ذٰلِكَ","version":2,"digest":"2cd6d9878447ecda"}
-{"id":"هُوَ","version":2,"digest":"8c8ff8bc27c1d74e"}
-{"id":"شُكْرًا","version":2,"digest":"d28fcf22041a3375"}
-{"id":"كُلّ","version":2,"digest":"a58024bc95501d9b"}
-{"id":"قَالَ","version":2,"digest":"4dac095bd2287049"}
-{"id":"بِـ","version":2,"digest":"427399188fc3c4aa"}
-{"id":"لٰكِنَّ","version":2,"digest":"a615d9964e4e6ab4","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"الْبَيْتُ","detail":"CATT reads الْبَيْتِ; CAMeL agrees with the card","catt":"الْبَيْتِ","camel":"البَيْتُ"}]}
-{"id":"نَعَمْ","version":2,"digest":"90aebd93d7172e23"}
-{"id":"لَمْ","version":2,"digest":"1913110aa560f9ec"}
-{"id":"آخَر","version":2,"digest":"1e06d36c7033f347"}
-{"id":"أَوْ","version":2,"digest":"b59b1ba7ec84d855"}
-{"id":"لَيْسَ","version":2,"digest":"07337dd8d73bcf6c"}
-{"id":"وَاحِد","version":2,"digest":"0caff414594d2e8b"}
-{"id":"أَنَا","version":2,"digest":"765cfc215805eeb9"}
-{"id":"إِنَّ","version":2,"digest":"09f4516420f44f52"}
-{"id":"أَيّ","version":2,"digest":"c0b0a835f7ef2f4e","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"أَيَّ","detail":"CATT reads أَيْ; CAMeL agrees with the card","catt":"أَيْ","camel":"أَيّ"},{"field":"example","kind":"diacritics","severity":"minor","word":"تُفَضِّلُ","detail":"CATT reads تَفْضُل; CAMeL agrees with the card","catt":"تَفْضُل","camel":"تُفَضِّل"}]}
-{"id":"شَيْء","version":2,"digest":"f41b4c139ff1094c"}
-{"id":"هِيَ","version":2,"digest":"8473af78432419c2"}
-{"id":"أَمْر","version":2,"digest":"2d3ea9dde9623397"}
-{"id":"بَعْدَ","version":2,"digest":"48b30f86f7d9acdd","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"الشَّايَ","detail":"CATT reads الشَّايِ; CAMeL agrees with the card","catt":"الشَّايِ","camel":"الشاي"}]}
-{"id":"يُمْكِنُ","version":2,"digest":"6df02f56885d560c"}
-{"id":"عَمَل","version":2,"digest":"574c38813a945615"}
-{"id":"أَهْلًا","version":2,"digest":"21ae6c388a87c26f"}
-{"id":"أَرَادَ","version":2,"digest":"4b4df8625ab290a4"}
-{"id":"إِذَا","version":2,"digest":"37b6af4f4a5b61a5","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"سَنَخْرُجُ","detail":"CATT reads سَنَخْرِجُ; CAMeL agrees with the card","catt":"سَنَخْرِجُ","camel":"سَنَخْرُج"}]}
-{"id":"يَا","version":2,"digest":"68000db01389c052"}
-{"id":"قَامَ","version":2,"digest":"be512d46363854c7"}
-{"id":"اِثْنَان","version":2,"digest":"d0a7f8c74133fa96"}
-{"id":"هُنَاكَ","version":2,"digest":"81ffc6be5655a0e8"}
-{"id":"لَدَى","version":2,"digest":"fbf13f02fcabc1e1"}
-{"id":"حَتَّى","version":2,"digest":"b6ebdb2138ab2d54","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"الْمَسَاءِ","detail":"CATT reads الْمَسَاءَ; CAMeL agrees with the card","catt":"الْمَسَاءَ","camel":"المَساءِ"}]}
-{"id":"هَلْ","version":2,"digest":"8516ec7af16817b5","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"الْعَرَبِيَّةَ","detail":"CATT reads الْعَرَبِيَّةُ; CAMeL agrees with the card","catt":"الْعَرَبِيَّةُ","camel":"العَرَبِيَّةَ"}]}
-{"id":"مِنْ فَضْلِكَ","version":2,"digest":"034cc8d2f0b95c73"}
-{"id":"أَنْتَ","version":2,"digest":"75411126a9258f5d"}
-{"id":"هُنَا","version":2,"digest":"2ff4367e4d2963a4"}
-{"id":"نَظَرَ","version":2,"digest":"ca9b2304e7ae93a2"}
-{"id":"الْآنَ","version":2,"digest":"cf00b4f95bfecbad"}
-{"id":"بَعْض","version":2,"digest":"6d39ad4d11ad592c"}
-{"id":"وَقْت","version":2,"digest":"8849bcf148cddbf6"}
-{"id":"رَجُل","version":2,"digest":"23b780cc6799da82"}
-{"id":"جَمِيع","version":2,"digest":"ce43fc514902e8b4"}
-{"id":"قَبْلَ","version":2,"digest":"aa6d443db428b522","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"وَصَلْتُ","detail":"CATT reads وَصَلَّتْ; CAMeL agrees with the card","catt":"وَصَلَّتْ","camel":"وَصَلْتُ"}]}
-{"id":"ثَلَاثَة","version":2,"digest":"03cbbeb089a4d832"}
-{"id":"فَقَطْ","version":2,"digest":"6b33fa1c4f250c76","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"أُرِيدُ","detail":"CATT reads أُرِيدَ; CAMeL agrees with the card","catt":"أُرِيدَ","camel":"أُرِيد"}]}
-{"id":"غَيْر","version":2,"digest":"fbda8dad1316dcbf"}
-{"id":"أَوَّل","version":2,"digest":"1f7dc64ceb83a553"}
-{"id":"أَحَد","version":2,"digest":"f0c60961f5d603b6"}
-{"id":"عَفْوًا","version":2,"digest":"120c77a562500471"}
-{"id":"طِفْل","version":2,"digest":"ce9319436c1b9061"}
-{"id":"رَأَى","version":2,"digest":"d9c6666e034c096b"}
-{"id":"قَدْ","version":2,"digest":"dd816cdbdcf0700c"}
-{"id":"مِنْ أَجْلِ","version":2,"digest":"b78457424381f8ab"}
-{"id":"مَعَ ٱلسَّلَامَةِ","version":2,"digest":"a545a50ec9195243","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"أَرَاكَ","detail":"CATT reads أَرَاكٌ; CAMeL agrees with the card","catt":"أَرَاكٌ","camel":"أَراكَ"}]}
-{"id":"نَفْس","version":2,"digest":"51f1c4eb22d97912"}
-{"id":"الْيَوْمَ","version":2,"digest":"64f97c578749a3b9","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"جَمِيلٌ","detail":"CATT reads جَمِيلُ; CAMeL agrees with the card","catt":"جَمِيلُ","camel":"جَمِيلٌ"},{"field":"example","kind":"diacritics","severity":"minor","word":"الْيَوْمَ","detail":"CATT reads الْيَوْمِ; CAMeL agrees with the card","catt":"الْيَوْمِ","camel":"اليَوْمَ"}]}
-{"id":"أَكْثَر","version":2,"digest":"4ef01760dd0af4dc","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"أُرِيدُ","detail":"CATT reads أُرِيدَ; CAMeL agrees with the card","catt":"أُرِيدَ","camel":"أُرِيد"}]}
-{"id":"لَقَدْ","version":2,"digest":"a57eea676941550d"}
-{"id":"عَام","version":2,"digest":"21ea32cbcf938a77","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"تَخَرَّجَ","detail":"CATT reads تُخْرِجُ; CAMeL agrees with the card","catt":"تُخْرِجُ","camel":"تَخَرَّجَ"}]}
-{"id":"يَوْم","version":2,"digest":"6d27404fc3b8f1b4"}
-{"id":"سَيِّد","version":2,"digest":"0df591a5a7afd3cc","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"صَبَاحُ","detail":"CATT reads صَبَاحَ; CAMeL agrees with the card","catt":"صَبَاحَ","camel":"صَباحُ"}]}
-{"id":"بَيْنَ","version":2,"digest":"f27f75514a7ab7f8","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"وَالْمَطْعَمِ","detail":"CATT reads وَالْمُطْعِمِ; CAMeL agrees with the card","catt":"وَالْمُطْعِمِ","camel":"وَالمَطْعَمِ"}]}
-{"id":"شَخْص","version":2,"digest":"db56ac5bc80e8cb7"}
-{"id":"أَرْبَعَة","version":2,"digest":"1568df5ee28d3d3a","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"أَرْبَعُ","detail":"CATT reads أَرْبَعٌ; CAMeL agrees with the card","catt":"أَرْبَعٌ","camel":"أَرْبَع"}]}
-{"id":"نَحْنُ","version":2,"digest":"91d5c112cb7678d1"}
-{"id":"عِنْدَ","version":2,"digest":"5f818df4a880de63"}
-{"id":"حَدَثَ","version":2,"digest":"83a45608be2482fa","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"حَدَثَ","detail":"CATT reads حَدَّثَ; CAMeL agrees with the card","catt":"حَدَّثَ","camel":"حَدَثَ"}]}
-{"id":"أَيْضًا","version":2,"digest":"12f5ba6e164a50c3"}
-{"id":"كَمَا","version":2,"digest":"f9472b5a4a4d7b0f"}
-{"id":"وَجَدَ","version":2,"digest":"48ca3f6eadf580e7"}
-{"id":"عَالَم","version":2,"digest":"9436ac5d574f5fa3"}
-{"id":"أَفْضَل","version":2,"digest":"1f197252322e3ba9"}
-{"id":"جَدِيد","version":2,"digest":"fde0746dc9695b14","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"اِشْتَرَيْتُ","detail":"CATT reads اشْتَرَيْتَ; CAMeL agrees with the card","catt":"اشْتَرَيْتَ","camel":"اِشْتَرَيْتُ"}]}
-{"id":"إِنْ شَاءَ ٱللّٰهُ","version":2,"digest":"37fb06d3218be37e"}
-{"id":"مَكَان","version":2,"digest":"b65beac7307d16b1"}
-{"id":"سَنَة","version":2,"digest":"f790fbdf6a7efa0f"}
-{"id":"يَجِبُ","version":2,"digest":"fff69067fc110be5"}
-{"id":"تَمَّ","version":2,"digest":"a740224603d8564c"}
-{"id":"خَمْسَة","version":2,"digest":"bdab86dac9ba7e0e"}
-{"id":"اِسْتَطَاعَ","version":2,"digest":"03de70ab873f1744"}
-{"id":"مِثْل","version":2,"digest":"d20af1889c1d46ee","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"مِثْلَ","detail":"CATT reads مِثْلُ; CAMeL agrees with the card","catt":"مِثْلُ","camel":"مِثْلَ"}]}
-{"id":"عَرَفَ","version":2,"digest":"362b7439b77b2f7a"}
-{"id":"فَعَلَ","version":2,"digest":"984540ecf7ce3496"}
-{"id":"مَاذَا","version":2,"digest":"ce0211c85930e4f2"}
-{"id":"كَيْفَ","version":2,"digest":"0457e12681822f42"}
-{"id":"خِلَالَ","version":2,"digest":"182bd72f3f135508"}
-{"id":"عَلِمَ","version":2,"digest":"22fc96eeb1d7de4f"}
-{"id":"رَئِيس","version":2,"digest":"462045b34ae8b15a"}
-{"id":"ثَانٍ","version":2,"digest":"b09a66981ba5f09b"}
-{"id":"عَادَ","version":2,"digest":"334a49a01979e041"}
-{"id":"كَثِير","version":2,"digest":"cbaeb6e558cc381a"}
-{"id":"عَيْن","version":2,"digest":"7499a09594eb3e61"}
-{"id":"جِدًّا","version":2,"digest":"5d7380c058ee31a7"}
-{"id":"كَمْ","version":2,"digest":"70553e8102640de3","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"سَنَةً","detail":"CATT reads سَنَةٍ; CAMeL agrees with the card","catt":"سَنَةٍ","camel":"سَنَةً"}]}
-{"id":"قِسْم","version":2,"digest":"764334f9b9fdfb70"}
-{"id":"لَنْ","version":2,"digest":"0b664e71317a40c5"}
-{"id":"أَب","version":2,"digest":"41bb849c955054bb"}
-{"id":"سَيَّارَة","version":2,"digest":"dfd88c8b83048026","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"جَدِيدَةً","detail":"CATT reads جَدِيدَةَ; CAMeL agrees with the card","catt":"جَدِيدَةَ","camel":"جَدِيدَةً"},{"field":"example","kind":"diacritics","severity":"minor","word":"الْعَامَ","detail":"CATT reads الْعَامِ; CAMeL agrees with the card","catt":"الْعَامِ","camel":"العامَ"}]}
-{"id":"سَوْفَ","version":2,"digest":"7d3bb8a8dc561cd7"}
-{"id":"ذَهَبَ","version":2,"digest":"95064fa8cebeabbb"}
-{"id":"حَقّ","version":2,"digest":"ce537574733827e4"}
-{"id":"لِأَنَّ","version":2,"digest":"48236dbd508d4b14","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"بَقِيتُ","detail":"CATT reads بَقِيَتْ; CAMeL agrees with the card","catt":"بَقِيَتْ","camel":"بَقِيْتُ"}]}
-{"id":"حَيَاة","version":2,"digest":"1e5df9940159b790"}
-{"id":"سِتَّة","version":2,"digest":"338e2565fae2bd27"}
-{"id":"خَبَر","version":2,"digest":"fe5c0fff101e543a"}
-{"id":"طَرِيق","version":2,"digest":"83a2f6fd8a4d8176"}
-{"id":"جَيِّد","version":2,"digest":"7a0a071f5778658e"}
-{"id":"عِنْدَمَا","version":2,"digest":"c9a129eec5bdb5cc"}
-{"id":"شَكْل","version":2,"digest":"fcc69c03e6cb5935"}
-{"id":"أَتَى","version":2,"digest":"5ed623c59ebd66bf"}
-{"id":"مَرَّة","version":2,"digest":"41560c219e5309c5"}
-{"id":"مُشْكِلَة","version":2,"digest":"9e7cdbaded3e3562"}
-{"id":"كَبِير","version":2,"digest":"426a4816cf8a36ee"}
-{"id":"هُمْ","version":2,"digest":"eea2cbf08ccb4bf8"}
-{"id":"اِبْن","version":2,"digest":"df76a19e0c9bb685"}
-{"id":"حَصَلَ","version":2,"digest":"25ef6514127c75fc"}
-{"id":"طَلَبَ","version":2,"digest":"77fb7bd03d86c766"}
-{"id":"شَرِكَة","version":2,"digest":"575d06f46887fc59"}
-{"id":"مَنْزِل","version":2,"digest":"fe2e890c56655d09","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"مَنْزِلِي","detail":"CATT reads مَنْزِلِيٌّ; CAMeL agrees with the card","catt":"مَنْزِلِيٌّ","camel":"مَنْزِلِي"}]}
-{"id":"إِلَّا","version":2,"digest":"4af9f5289f72d647"}
-{"id":"مَاء","version":2,"digest":"e2ff1b35d2ad71fb"}
-{"id":"بَانَ","version":2,"digest":"8d537388efc936de","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"بَعِيدٍ","detail":"CATT reads بَعِيدِ; CAMeL agrees with the card","catt":"بَعِيدِ","camel":"بَعِيدٍ"}]}
-{"id":"اِعْتَقَدَ","version":2,"digest":"4b791aee433eccb1"}
-{"id":"سَبْعَة","version":2,"digest":"571b6184d4eaa81e"}
-{"id":"بَدَأَ","version":2,"digest":"e57161e8896f63f4"}
-{"id":"صُورَة","version":2,"digest":"93d775890af62c68"}
-{"id":"مُنْذُ","version":2,"digest":"d79f3efbcc83da3e","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"سَنَةٍ","detail":"CATT reads سُنَّةٍ; CAMeL agrees with the card","catt":"سُنَّةٍ","camel":"سَنَةٍ"}]}
-{"id":"وَلَا","version":2,"digest":"246e402794d1e6d0"}
-{"id":"قُوَّة","version":2,"digest":"e43dd05fabc45dc0"}
-{"id":"أَخَذَ","version":2,"digest":"c64018be68e63806"}
-{"id":"حَوْل","version":2,"digest":"48cb59b724d274db"}
-{"id":"مَوْقِع","version":2,"digest":"8553d7a0714115ed"}
-{"id":"سَاعَة","version":2,"digest":"c14c64a1c202c3f0","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"اِنْتَظَرْتُ","detail":"CATT reads انْتُظَرْتُ; CAMeL agrees with the card","catt":"انْتُظَرْتُ","camel":"اِنْتَظَرْتُ"}]}
-{"id":"فَـ","version":2,"digest":"bd8235e6ebb2d58d"}
-{"id":"تَكَوَّنَ","version":2,"digest":"68225fcf42401a88","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"تَكَوَّنَ","detail":"CATT reads تَكُونُ; CAMeL agrees with the card","catt":"تَكُونُ","camel":"تَكُون"}]}
-{"id":"صَحِيح","version":2,"digest":"2536d5fa65fbde89","issues":[{"field":"forms","kind":"unknown","severity":"minor","word":"صِحَاح","detail":"CAMeL does not know this word, so only Wiktionary vouches for it"}]}
-{"id":"ثُمَّ","version":2,"digest":"ee10bc027c85f01b"}
-{"id":"جَعَلَ","version":2,"digest":"2c32a725ff82a118"}
-{"id":"عَمَلِيَّة","version":2,"digest":"d3e5a7b5bc4066ec"}
-{"id":"خَاصّ","version":2,"digest":"06acf3d2d827bad7"}
-{"id":"شَأْن","version":2,"digest":"513b619936c75150"}
-{"id":"أَصْبَحَ","version":2,"digest":"ffb1cbdf1bcdd86e","issues":[{"field":"forms","kind":"invalid","severity":"major","word":"إِصْبَاح","detail":"CAMeL does not allow these vowels; it knows أَصْباح، أَصْباحٌ، أَصْباحٍ، أَصْباحَ","known":["أَصْباح","أَصْباحٌ","أَصْباحٍ","أَصْباحَ","أَصْباحُ","أَصْباحِ"]}]}
-{"id":"وَضَعَ","version":2,"digest":"a77b4cb5fcde4182"}
-{"id":"ثَمَانِيَة","version":2,"digest":"aa73e05a08f994b5","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"ثَمَانِيَةُ","detail":"CATT reads ثَمَانِيَةٌ; CAMeL agrees with the card","catt":"ثَمَانِيَةٌ","camel":"ثَمانِيَةُ"}]}
-{"id":"حَال","version":2,"digest":"7abefd89a19e2a0c","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"الطَّبِيبُ","detail":"CATT reads الطَّبِيبَ; CAMeL agrees with the card","catt":"الطَّبِيبَ","camel":"الطَبِيبُ"}]}
-{"id":"اِسْم","version":2,"digest":"644ba194630cc8a9"}
-{"id":"مَال","version":2,"digest":"fda51d9076974c1e"}
-{"id":"تَحَدَّثَ","version":2,"digest":"5eb2bbd8e1142522"}
-{"id":"حَيْثُ","version":2,"digest":"55d85845dcf46cea","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"الْبَيْتُ","detail":"CATT reads الْبَيْتِ; CAMeL agrees with the card","catt":"الْبَيْتِ","camel":"البَيْتُ"},{"field":"example","kind":"unmarked","severity":"major","word":"جَمِيل","detail":"no vowel mark on ل"},{"field":"example","kind":"diacritics","severity":"major","word":"جَمِيل","detail":"CATT reads جَمِيلٌ; CAMeL reads جَمِيلَ","catt":"جَمِيلٌ","camel":"جَمِيلَ"}]}
-{"id":"بَدَا","version":2,"digest":"631f3d399ae32b9a","issues":[{"field":"forms","kind":"invalid","severity":"major","word":"بُدُوّ","detail":"CAMeL does not allow these vowels; it knows بَدْو، بَدْوٌ، بَدْوٍ، بَدْوَ","known":["بَدْو","بَدْوٌ","بَدْوٍ","بَدْوَ","بَدْوُ","بَدْوِ"]},{"field":"example","kind":"unmarked","severity":"major","word":"تَعِب","detail":"no vowel mark on ب"},{"field":"example","kind":"diacritics","severity":"major","word":"تَعِب","detail":"CATT reads تَعَبٌ; CAMeL reads تَعِبَ","catt":"تَعَبٌ","camel":"تَعِبَ"}]}
-{"id":"اِحْتَاجَ","version":2,"digest":"4d844a6af264100b"}
-{"id":"مِنْطَقَة","version":2,"digest":"cba6f54b410a6466","issues":[{"field":"forms","kind":"unknown","severity":"minor","word":"مِنْطَقَات","detail":"CAMeL does not know this word, so only Wiktionary vouches for it"},{"field":"example","kind":"diacritics","severity":"minor","word":"مِنْطَقَةٌ","detail":"CATT reads مِنْطِقَةٌ; CAMeL agrees with the card","catt":"مِنْطِقَةٌ","camel":"مِنْطَقَةٌ"},{"field":"example","kind":"unmarked","severity":"major","word":"جَمِيلَة","detail":"no vowel mark on ة"},{"field":"example","kind":"diacritics","severity":"major","word":"جَمِيلَة","detail":"CATT reads جَمِيلَةٌ; CAMeL reads جَمِيلَةٌ","catt":"جَمِيلَةٌ","camel":"جَمِيلَةٌ"}]}
-{"id":"صَدِيق","version":2,"digest":"43ea909aaa18cf20","issues":[{"field":"example","kind":"unmarked","severity":"major","word":"جَدِيد","detail":"no vowel mark on د"},{"field":"example","kind":"diacritics","severity":"major","word":"جَدِيد","detail":"CATT reads جَدِيدٌ; CAMeL reads جَدِيدٌ","catt":"جَدِيدٌ","camel":"جَدِيدٌ"}]}
-{"id":"أَنْتُمْ","version":2,"digest":"838120efc052583e"}
-{"id":"سَبَب","version":2,"digest":"ec906dfcdcd4da60"}
-{"id":"اِمْرَأَة","version":2,"digest":"c4d1688dcde84554","issues":[{"field":"example","kind":"unmarked","severity":"major","word":"جَمِيلَة","detail":"no vowel mark on ة"},{"field":"example","kind":"diacritics","severity":"major","word":"جَمِيلَة","detail":"CATT reads جَمِيلَةٌ; CAMeL reads جَمِيلَةٌ","catt":"جَمِيلَةٌ","camel":"جَمِيلَةٌ"}]}
-{"id":"مَوْضُوع","version":2,"digest":"a642d5097b8f6fe3","issues":[{"field":"example","kind":"unmarked","severity":"major","word":"مُهِمّ","detail":"no vowel mark on م"},{"field":"example","kind":"diacritics","severity":"major","word":"مُهِمّ","detail":"CATT reads مُهِمٌّ; CAMeL reads مُهِمٌّ","catt":"مُهِمٌّ","camel":"مُهِمٌّ"}]}
-{"id":"وَصَلَ","version":2,"digest":"a588df565d3bc57a"}
-{"id":"أَمْ","version":2,"digest":"7e947938547c88af"}
-{"id":"عَمِلَ","version":2,"digest":"e955140366d628de"}
-{"id":"إِن","version":2,"digest":"168fdee16df70b5c","issues":[{"field":"example","kind":"unmarked","severity":"major","word":"إِن","detail":"no vowel mark on ن"}]}
-{"id":"نَاس","version":2,"digest":"41e5d52ea870d928"}
-{"id":"حَدّ","version":2,"digest":"3fd831539ec08350","issues":[{"field":"example","kind":"unmarked","severity":"major","word":"واضِحٌ","detail":"no vowel mark on و"}]}
-{"id":"تِسْعَة","version":2,"digest":"aa3e4a4c0025b423"}
-{"id":"نَوْع","version":2,"digest":"41ba65a4527f79d2"}
-{"id":"دُونَ","version":2,"digest":"b05474484c360784"}
-{"id":"طَرِيقَة","version":2,"digest":"25469a62aaf88244"}
-{"id":"رَقْم","version":2,"digest":"cafb1f221fc4cf74"}
-{"id":"دَعَا","version":2,"digest":"d1ad075607260ef3"}
-{"id":"دَاخِل","version":2,"digest":"c1d4e8a9c1a74bc7","issues":[{"field":"example","kind":"diacritics","severity":"major","word":"دَاخِلُ","detail":"CATT reads دَاخِلَ; CAMeL reads داخِلَ","catt":"دَاخِلَ","camel":"داخِلَ"}]}
-{"id":"دُولَار","version":2,"digest":"c1b18a28f7b5a0d1","issues":[{"field":"example","kind":"unmarked","severity":"major","word":"دُولَارَات","detail":"no vowel mark on ت"},{"field":"example","kind":"diacritics","severity":"major","word":"دُولَارَات","detail":"CATT reads دُولَارَاتٍ; CAMeL reads دُولاراتٍ","catt":"دُولَارَاتٍ","camel":"دُولاراتٍ"}]}
-{"id":"اِتَّصَلَ","version":2,"digest":"9b8114fab2698100"}
-{"id":"عَامّ","version":2,"digest":"65cd40fc5dd7ac87","issues":[{"field":"example","kind":"unmarked","severity":"major","word":"عَامّ","detail":"no vowel mark on م"},{"field":"example","kind":"diacritics","severity":"major","word":"عَامّ","detail":"CATT reads عَامٌّ; CAMeL reads عامٌّ","catt":"عَامٌّ","camel":"عامٌّ"}]}
-{"id":"سَـ","version":2,"digest":"f7897ea96fb457c2"}
-{"id":"خَارِج","version":2,"digest":"c97d843af00c2e96","issues":[{"field":"example","kind":"diacritics","severity":"major","word":"خَارِجُ","detail":"CATT reads خَارِجَ; CAMeL reads خارِجَ","catt":"خَارِجَ","camel":"خارِجَ"},{"field":"example","kind":"diacritics","severity":"minor","word":"بَارِدٌ","detail":"CATT reads بَارِدَ; CAMeL agrees with the card","catt":"بَارِدَ","camel":"بارِدٌ"}]}
-{"id":"بَيْت","version":2,"digest":"f200660e4e51f7c0","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"الْبَيْتُ","detail":"CATT reads الْبَيْتِ; CAMeL agrees with the card","catt":"الْبَيْتِ","camel":"البَيْتُ"}]}
-{"id":"فَرِيق","version":2,"digest":"aac330d22d479680","issues":[{"field":"forms","kind":"invalid","severity":"major","word":"أَفْرِقَة","detail":"CAMeL does not allow these vowels; it knows أَفْرَقَة، أَفْرَقَةً، أَفْرَقَةٌ، أَفْرَقَةٍ","known":["أَفْرَقَة","أَفْرَقَةً","أَفْرَقَةٌ","أَفْرَقَةٍ","أَفْرَقَةَ","أَفْرَقَةُ"]}]}
-{"id":"آن","version":2,"digest":"2484205a88004ffc","issues":[{"field":"example","kind":"invalid","severity":"major","word":"لِلذِّهَابِ","detail":"CAMeL does not allow these vowels; it knows لِلذَهاب، لِلذَهابِ","known":["لِلذَهاب","لِلذَهابِ"]},{"field":"example","kind":"diacritics","severity":"major","word":"لِلذِّهَابِ","detail":"CATT reads لِلذَّهَابِ; CAMeL reads لِلذَهابِ","catt":"لِلذَّهَابِ","camel":"لِلذَهابِ"}]}
-{"id":"لَوْ","version":2,"digest":"b00785bd35737400"}
-{"id":"قَدَم","version":2,"digest":"93a6f152aaf8acd0","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"الْقَدَمُ","detail":"CATT reads الْقِدَمُ; CAMeL agrees with the card","catt":"الْقِدَمُ","camel":"القَدَمُ"}]}
-{"id":"زَالَ","version":2,"digest":"01d228dab63c3e8e"}
-{"id":"لِمَاذَا","version":2,"digest":"dd44798b611058ff"}
-{"id":"فِيلْم","version":2,"digest":"cae7eba761d5fd48","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"الْفِيلْمُ","detail":"CATT reads الْفَيْلَمُ; CAMeL agrees with the card","catt":"الْفَيْلَمُ","camel":"الفِيلمُ"}]}
-{"id":"عَشَرَة","version":2,"digest":"8e2b6a144b4c5626"}
-{"id":"قَتَلَ","version":2,"digest":"0ab7d48a0c9e11f4"}
-{"id":"رُبَّمَا","version":2,"digest":"8b439610ec3b43c9"}
-{"id":"قَائِم","version":2,"digest":"6acada3cdd696d01","issues":[{"field":"forms","kind":"invalid","severity":"major","word":"قُوَّم","detail":"CAMeL does not allow these vowels; it knows قَوَّمَ، قَوْم، قَوْمٌ، قَوْمٍ","known":["قَوَّمَ","قَوْم","قَوْمٌ","قَوْمٍ","قَوْمَ","قَوْمُ"]}]}
-{"id":"أُسْبُوع","version":2,"digest":"cfc6f9d3efda4772","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"أَعْمَلُ","detail":"CATT reads أَعْمَلَ; CAMeL agrees with the card","catt":"أَعْمَلَ","camel":"أَعْمَل"}]}
-{"id":"كَلِمَة","version":2,"digest":"898c1573a6425d98"}
-{"id":"أَحَبَّ","version":2,"digest":"da80624d901165e4"}
-{"id":"مُسَاعَدَة","version":2,"digest":"0948fd4f7848ef51"}
-{"id":"دُكْتُور","version":2,"digest":"94b81d202d6c6772","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"ذَهَبْتُ","detail":"CATT reads ذَهَبَتْ; CAMeL agrees with the card","catt":"ذَهَبَتْ","camel":"ذَهَبْتُ"}]}
-{"id":"دَقِيقَة","version":2,"digest":"a298ef66a0f0fc74"}
-{"id":"صَبَاح الخَيْر","version":2,"digest":"05d7389c95f94f9d","issues":[{"field":"arabic","kind":"unmarked","severity":"major","word":"الخَيْر","detail":"no vowel mark on ل"},{"field":"example","kind":"unmarked","severity":"major","word":"صَبَاح","detail":"no vowel mark on ح"},{"field":"example","kind":"diacritics","severity":"major","word":"صَبَاح","detail":"CATT reads صَبَاحُ; CAMeL reads صَباحُ","catt":"صَبَاحُ","camel":"صَباحُ"},{"field":"example","kind":"unmarked","severity":"major","word":"الخَيْر","detail":"no vowel mark on ل، ر"},{"field":"example","kind":"diacritics","severity":"major","word":"الخَيْر","detail":"CATT reads الْخَيْرِ; CAMeL reads الخَيْرِ","catt":"الْخَيْرِ","camel":"الخَيْرِ"}]}
-{"id":"بَرْنَامَج","version":2,"digest":"5996ba9cefcac8df"}
-{"id":"حِين","version":2,"digest":"b7ac1f3d28c8c8c8"}
-{"id":"نِسْبَة","version":2,"digest":"fcaf5360d67bdfd7"}
-{"id":"رِسَالَة","version":2,"digest":"79a71bbbcb65773a"}
-{"id":"كَذَٰلِكَ","version":2,"digest":"423ec2dc52f411a2","issues":[{"field":"arabic","kind":"invalid","severity":"major","word":"كَذَٰلِكَ","detail":"CAMeL does not allow these vowels; it knows كَذُلّكَ، كَذُلّكِ، كَذُلَّكَ، كَذُلَّكِ","known":["كَذُلّكَ","كَذُلّكِ","كَذُلَّكَ","كَذُلَّكِ","كَذُلُّكَ","كَذُلُّكِ"]},{"field":"example","kind":"invalid","severity":"major","word":"كَذَٰلِكَ","detail":"CAMeL does not allow these vowels; it knows كَذُلّكَ، كَذُلّكِ، كَذُلَّكَ، كَذُلَّكِ","known":["كَذُلّكَ","كَذُلّكِ","كَذُلَّكَ","كَذُلَّكِ","كَذُلُّكَ","كَذُلُّكِ"]},{"field":"example","kind":"diacritics","severity":"major","word":"كَذَٰلِكَ","detail":"CATT reads كَذَلِكَ; CAMeL reads كَذٰلِكَ","catt":"كَذَلِكَ","camel":"كَذٰلِكَ"}]}
-{"id":"لَعْب","version":2,"digest":"182fec28d5e25982","issues":[{"field":"example","kind":"diacritics","severity":"major","word":"أَحِبُّ","detail":"CATT reads أُحَبُّ; CAMeL reads أُحِبّ","catt":"أُحَبُّ","camel":"أُحِبّ"},{"field":"example","kind":"diacritics","severity":"minor","word":"اللَّعْبَ","detail":"CATT reads اللَّعِبَ; CAMeL agrees with the card","catt":"اللَّعِبَ","camel":"اللَعْبَ"}]}
-{"id":"شَعَرَ","version":2,"digest":"2eec3b3c3fbed089"}
-{"id":"مَدِينَة","version":2,"digest":"6ed1c760c1025e8b"}
-{"id":"أَمَام","version":2,"digest":"6888bae6e53b365a"}
-{"id":"مَسَاء الخَيْر","version":2,"digest":"5dceec7036f210d5","issues":[{"field":"arabic","kind":"unmarked","severity":"major","word":"الخَيْر","detail":"no vowel mark on ل"},{"field":"example","kind":"unmarked","severity":"major","word":"مَسَاء","detail":"no vowel mark on ء"},{"field":"example","kind":"diacritics","severity":"major","word":"مَسَاء","detail":"CATT reads مَسَاءُ; CAMeL reads مَساءُ","catt":"مَسَاءُ","camel":"مَساءُ"},{"field":"example","kind":"unmarked","severity":"major","word":"الخَيْر","detail":"no vowel mark on ل، ر"},{"field":"example","kind":"diacritics","severity":"major","word":"الخَيْر","detail":"CATT reads الْخَيْرِ; CAMeL reads الخَيْرِ","catt":"الْخَيْرِ","camel":"الخَيْرِ"}]}
-{"id":"لَذِيذ","version":2,"digest":"4ebc9c73287be732"}
-{"id":"مَدْرَسَة","version":2,"digest":"92ac30c9706dbfdf"}
-{"id":"يَد","version":2,"digest":"55d6da4ad29113ec","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"رَفَعَ","detail":"CATT reads رَفْعُ; CAMeL agrees with the card","catt":"رَفْعُ","camel":"رَفَعَ"},{"field":"example","kind":"diacritics","severity":"minor","word":"يَدَهُ","detail":"CATT reads يَدِهِ; CAMeL agrees with the card","catt":"يَدِهِ","camel":"يَدَهُ"}]}
-{"id":"خِدْمَة","version":2,"digest":"190fde2382b810c0","issues":[{"field":"forms","kind":"invalid","severity":"major","word":"خِدْمَات","detail":"CAMeL does not allow these vowels; it knows خَدَمات، خَدَماتٌ، خَدَماتٍ، خَدَماتُ","known":["خَدَمات","خَدَماتٌ","خَدَماتٍ","خَدَماتُ","خَدَماتِ"]}]}
-{"id":"حَيّ","version":2,"digest":"a5fe830f716e7c4b"}
-{"id":"أَيْنَ","version":2,"digest":"5534f951341083f1"}
-{"id":"أَلْف","version":2,"digest":"3b19ec10c5f52301","issues":[{"field":"example","kind":"diacritics","severity":"major","word":"أَلْفُ","detail":"CATT reads أَلْفَ; CAMeL reads إِلْفَ","catt":"أَلْفَ","camel":"إِلْفَ"},{"field":"example","kind":"unmarked","severity":"major","word":"دُولَار","detail":"no vowel mark on ر"},{"field":"example","kind":"diacritics","severity":"major","word":"دُولَار","detail":"CATT reads دُولَارٍ; CAMeL reads دُولارٍ","catt":"دُولَارٍ","camel":"دُولارٍ"}]}
-{"id":"حَالَة","version":2,"digest":"2f41d1cc87f8a419","issues":[{"field":"example","kind":"unmarked","severity":"major","word":"جَيِّدَة","detail":"no vowel mark on ة"},{"field":"example","kind":"diacritics","severity":"major","word":"جَيِّدَة","detail":"CATT reads جَيِّدَةٌ; CAMeL reads جَيِّدَةٌ","catt":"جَيِّدَةٌ","camel":"جَيِّدَةٌ"}]}
-{"id":"شَهْر","version":2,"digest":"94dbdba0c43e2564"}
-{"id":"كَـ","version":2,"digest":"a6bc0b235297e2af"}
-{"id":"فَقَدَ","version":2,"digest":"5b881378600da7d8","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"فَقَدَ","detail":"CATT reads فَقْدُ; CAMeL agrees with the card","catt":"فَقْدُ","camel":"فَقَدَ"},{"field":"example","kind":"diacritics","severity":"minor","word":"الرَّجُلُ","detail":"CATT reads الرَّجُلِ; CAMeL agrees with the card","catt":"الرَّجُلِ","camel":"الرَجُلُ"},{"field":"example","kind":"invalid","severity":"major","word":"مَفْتَاحَهُ","detail":"CAMeL does not allow these vowels; it knows مِفْتاحه، مِفْتاحَهُ، مِفْتاحُهُ، مِفْتاحِهِ","known":["مِفْتاحه","مِفْتاحَهُ","مِفْتاحُهُ","مِفْتاحِهِ"]},{"field":"example","kind":"diacritics","severity":"major","word":"مَفْتَاحَهُ","detail":"CATT reads مِفْتَاحَهُ; CAMeL reads مِفْتاحَهُ","catt":"مِفْتَاحَهُ","camel":"مِفْتاحَهُ"}]}
-{"id":"أَخ","version":2,"digest":"6ff26c4cc3106471","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"طَالِبٌ","detail":"CATT reads طَالِبٍ; CAMeL agrees with the card","catt":"طَالِبٍ","camel":"طالِبٌ"}]}
-{"id":"مُخْتَلِف","version":2,"digest":"5b06dc63135dfaa6"}
-{"id":"أَكْبَر","version":2,"digest":"247210a4db034fa3","issues":[{"field":"forms","kind":"unknown","severity":"minor","word":"أَكْبَرُون","detail":"CAMeL does not know this word, so only Wiktionary vouches for it"}]}
-{"id":"عَائِلَة","version":2,"digest":"9a3456a341c6542d"}
-{"id":"ذَكَرَ","version":2,"digest":"a4c8d300ef553ee2","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"الرَّجُلُ","detail":"CATT reads الرَّجُلِ; CAMeL agrees with the card","catt":"الرَّجُلِ","camel":"الرَجُلُ"}]}
-{"id":"سُؤَال","version":2,"digest":"1f23285c373ef6d3"}
-{"id":"أَعْطَى","version":2,"digest":"9a4b8da6741ea585"}
-{"id":"صَغِير","version":2,"digest":"07492f941237a776"}
-{"id":"مَتَى","version":2,"digest":"e54504a7b2f934fa"}
-{"id":"اِنْتَهَى","version":2,"digest":"e587c92659619110"}
-{"id":"عَلَاقَة","version":2,"digest":"b0902dd9d988119c"}
-{"id":"جَانِب","version":2,"digest":"d5fc40c6a0cb3db9","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"الشَّجَرَةُ","detail":"CATT reads الشَّجَرَةِ; CAMeL agrees with the card","catt":"الشَّجَرَةِ","camel":"الشَجَرَةُ"}]}
-{"id":"قَوْل","version":2,"digest":"790759d0b51da84e"}
-{"id":"بُعْد","version":2,"digest":"23c9fb5a5528cd8e"}
-{"id":"سَمِعَ","version":2,"digest":"85cc86adfc7c1e7c"}
-{"id":"بَاب","version":2,"digest":"62349915d1938f8b"}
-{"id":"تَحْتُ","version":2,"digest":"dcf35f25d20ee94f"}
-{"id":"حَاوَلَ","version":2,"digest":"14813fa3c0fbec72"}
-{"id":"غَدَا","version":2,"digest":"1d062605d37ba98d"}
-{"id":"مَاضٍ","version":2,"digest":"c6ab98e546f42e5a","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"الْمَاضِي","detail":"CATT reads الْمَاضِيَ; CAMeL agrees with the card","catt":"الْمَاضِيَ","camel":"الماضِي"}]}
-{"id":"رَائِع","version":2,"digest":"84ecbaeff0fc8c52"}
-{"id":"جِهَاز","version":2,"digest":"1e3219b2ff1412cf"}
-{"id":"هَاتِف","version":2,"digest":"aa99c3bc8e576e39"}
-{"id":"عَدَد","version":2,"digest":"3e770936fe42b443"}
-{"id":"وَالِد","version":2,"digest":"d985472a59a8b9a8","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"مِنْ","detail":"CATT reads مَنْ; CAMeL agrees with the card","catt":"مَنْ","camel":"مِن"}]}
-{"id":"أَخِير","version":2,"digest":"dac351edfd46732a","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"الْأَخِيرُ","detail":"CATT reads الْأَخِيرَ; CAMeL agrees with the card","catt":"الْأَخِيرَ","camel":"الأَخِيرُ"}]}
-{"id":"أَقَلّ","version":2,"digest":"dbde9977187717ad","issues":[{"field":"example","kind":"unmarked","severity":"major","word":"أَقَلّ","detail":"no vowel mark on ل"},{"field":"example","kind":"diacritics","severity":"major","word":"أَقَلّ","detail":"CATT reads أَقَلُّ; CAMeL reads أَقَلُّ","catt":"أَقَلُّ","camel":"أَقَلُّ"}]}
-{"id":"جَاءَ","version":2,"digest":"dac176a415f3f58b"}
-{"id":"بَلَد","version":2,"digest":"0270de7ab31020cf","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"جَمِيلَةٌ","detail":"CATT reads جَمِيلَةُ; CAMeL agrees with the card","catt":"جَمِيلَةُ","camel":"جَمِيلَةٌ"}]}
-{"id":"أَمْرِيكِيّ","version":2,"digest":"c42fc82acac3425e","issues":[{"field":"example","kind":"diacritics","severity":"major","word":"أَمْرِيكِيّ","detail":"CATT reads أَمْرِيكِيٌّ; CAMeL reads أَمْرِيكِيٌّ","catt":"أَمْرِيكِيٌّ","camel":"أَمْرِيكِيٌّ"}]}
-{"id":"مَرْكَز","version":2,"digest":"3890b1e63f520564"}
-{"id":"وَجْه","version":2,"digest":"79e2035ea91229fe","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"الْوَجْهُ","detail":"CATT reads الْوَجْهِ; CAMeL agrees with the card","catt":"الْوَجْهِ","camel":"الوَجْهُ"}]}
-{"id":"وَضْع","version":2,"digest":"76937b037383ae5b"}
-{"id":"حُصُول","version":2,"digest":"a6cf935afe735926","issues":[{"field":"example","kind":"unmarked","severity":"major","word":"حُصُول","detail":"no vowel mark on ل"},{"field":"example","kind":"diacritics","severity":"major","word":"حُصُول","detail":"CATT reads حُصُولُ; CAMeL reads حُصُولُ","catt":"حُصُولُ","camel":"حُصُولُ"}]}
-{"id":"حَقِيقَة","version":2,"digest":"ad3f2c4a4a64f58a"}
-{"id":"شُرْطَة","version":2,"digest":"d8debae3ae28e50f","issues":[{"field":"forms","kind":"invalid","severity":"major","word":"شُرَط","detail":"CAMeL does not allow these vowels; it knows شَرَط، شَرَطٌ، شَرَطٍ، شَرَطَ","known":["شَرَط","شَرَطٌ","شَرَطٍ","شَرَطَ","شَرَطُ","شَرَطِ"]}]}
-{"id":"كَامِل","version":2,"digest":"edd81302c676de9b","issues":[{"field":"forms","kind":"unknown","severity":"minor","word":"كَامِلُون","detail":"CAMeL does not know this word, so only Wiktionary vouches for it"}]}
-{"id":"اَلْ","version":2,"digest":"0e387a44d0c7798a"}
-{"id":"رَأْي","version":2,"digest":"3e6adaa13152cc68"}
-{"id":"تَعَلَّمَ","version":2,"digest":"b3417291a7b9b66c","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"تَعَلَّمَ","detail":"CATT reads تَعَلُّمُ; CAMeL agrees with the card","catt":"تَعَلُّمُ","camel":"تَعَلَّمَ"},{"field":"example","kind":"unmarked","severity":"major","word":"الْعَرَبِيَّة","detail":"no vowel mark on ة"},{"field":"example","kind":"diacritics","severity":"major","word":"الْعَرَبِيَّة","detail":"CATT reads الْعَرَبِيَّةِ; CAMeL reads العَرَبِيَّةَ","catt":"الْعَرَبِيَّةِ","camel":"العَرَبِيَّةَ"}]}
-{"id":"تَرَكَ","version":2,"digest":"392e531ff7c97558","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"تَرَكَ","detail":"CATT reads تَرْك; CAMeL agrees with the card","catt":"تَرْك","camel":"تَرَكَ"}]}
-{"id":"قِصَّة","version":2,"digest":"9593317a463436b8"}
-{"id":"مَكْتَب","version":2,"digest":"5b5959cc0ffe6c2b"}
-{"id":"بِمَا","version":2,"digest":"365dd9d3f357433c"}
-{"id":"حَدِيث","version":2,"digest":"9154d0db15b7e723","issues":[{"field":"example","kind":"unmarked","severity":"major","word":"جَمِيل","detail":"no vowel mark on ل"},{"field":"example","kind":"diacritics","severity":"major","word":"جَمِيل","detail":"CATT reads جَمِيلٌ; CAMeL reads جَمِيلٌ","catt":"جَمِيلٌ","camel":"جَمِيلٌ"}]}
-{"id":"أَعْلَى","version":2,"digest":"d0938ceac0796266"}
-{"id":"قَضِيَّة","version":2,"digest":"a194d82a612cfa80","issues":[{"field":"example","kind":"unmarked","severity":"major","word":"مُهِمَّة","detail":"no vowel mark on ة"},{"field":"example","kind":"diacritics","severity":"major","word":"مُهِمَّة","detail":"CATT reads مُهِمَّةٌ; CAMeL reads مُهِمَّةٌ","catt":"مُهِمَّةٌ","camel":"مُهِمَّةٌ"}]}
-{"id":"عُضْو","version":2,"digest":"210d95fe0b7b3ef8"}
-{"id":"أَمْس","version":2,"digest":"0434d0cc08c46e59","issues":[{"field":"example","kind":"diacritics","severity":"major","word":"أَمْسُ","detail":"CATT reads أَمْسِ; CAMeL reads أَمَسّ","catt":"أَمْسِ","camel":"أَمَسّ"}]}
-{"id":"وُجُود","version":2,"digest":"47095786c72a3f5c","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"مُهِمٌّ","detail":"CATT reads مُهَمَّ; CAMeL agrees with the card","catt":"مُهَمَّ","camel":"مُهِمٌّ"}]}
-{"id":"نِهَايَة","version":2,"digest":"0aef1b35e9576c3a","issues":[{"field":"example","kind":"unmarked","severity":"major","word":"جَمِيلَة","detail":"no vowel mark on ة"},{"field":"example","kind":"diacritics","severity":"major","word":"جَمِيلَة","detail":"CATT reads جَمِيلَةٌ; CAMeL reads جَمِيلَةٌ","catt":"جَمِيلَةٌ","camel":"جَمِيلَةٌ"}]}
-{"id":"سَاعَدَ","version":2,"digest":"6973ab04d0f7bd67","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"صَدِيقَهُ","detail":"CATT reads صَدِيقِهِ; CAMeL agrees with the card","catt":"صَدِيقِهِ","camel":"صَدِيقَهُ"}]}
-{"id":"كُرَة","version":2,"digest":"2f8bab9da737dda9","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"كُرَةٌ","detail":"CATT reads كُرَةً; CAMeL agrees with the card","catt":"كُرَةً","camel":"كُرَةٌ"},{"field":"example","kind":"unmarked","severity":"major","word":"كَبِيرَة","detail":"no vowel mark on ة"},{"field":"example","kind":"diacritics","severity":"major","word":"كَبِيرَة","detail":"CATT reads كَبِيرَةٌ; CAMeL reads كَبِيرَةٌ","catt":"كَبِيرَةٌ","camel":"كَبِيرَةٌ"}]}
-{"id":"نِظَام","version":2,"digest":"2230dc436a259ac7","issues":[{"field":"forms","kind":"invalid","severity":"major","word":"نُظُم","detail":"CAMeL does not allow these vowels; it knows نَظَمَ، نَظَّمَ، نَظْم، نَظْمٌ","known":["نَظَمَ","نَظَّمَ","نَظْم","نَظْمٌ","نَظْمٍ","نَظْمَ"]}]}
-{"id":"فَتْرَة","version":2,"digest":"c8aa24d000037b8e","issues":[{"field":"example","kind":"unmarked","severity":"major","word":"طَوِيلَة","detail":"no vowel mark on ة"},{"field":"example","kind":"diacritics","severity":"major","word":"طَوِيلَة","detail":"CATT reads طَوِيلَةٌ; CAMeL reads طَوِيلَةٌ","catt":"طَوِيلَةٌ","camel":"طَوِيلَةٌ"}]}
-{"id":"فِعْل","version":2,"digest":"caf40ab52ef2f21d"}
-{"id":"قَانُون","version":2,"digest":"92dcb92fa579486a"}
-{"id":"بَحْث","version":2,"digest":"a75018e313012604"}
-{"id":"وِلَايَة","version":2,"digest":"1bf8689119f0ef16","issues":[{"field":"example","kind":"unmarked","severity":"major","word":"كَبِيرَة","detail":"no vowel mark on ة"},{"field":"example","kind":"diacritics","severity":"major","word":"كَبِيرَة","detail":"CATT reads كَبِيرَةٌ; CAMeL reads كَبِيرَةٌ","catt":"كَبِيرَةٌ","camel":"كَبِيرَةٌ"}]}
-{"id":"رَأْس","version":2,"digest":"d502f5e8b2864b5d","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"رَأْسٌ","detail":"CATT reads رَأْسٍ; CAMeL agrees with the card","catt":"رَأْسٍ","camel":"رَأْسٌ"}]}
-{"id":"فَتَاة","version":2,"digest":"e3920aebe915a8b9","issues":[{"field":"example","kind":"unmarked","severity":"major","word":"جَمِيلَة","detail":"no vowel mark on ة"},{"field":"example","kind":"diacritics","severity":"major","word":"جَمِيلَة","detail":"CATT reads جَمِيلَةٌ; CAMeL reads جَمِيلَةٌ","catt":"جَمِيلَةٌ","camel":"جَمِيلَةٌ"}]}
-{"id":"دُخُول","version":2,"digest":"8506a038b222c0d9"}
-{"id":"جُزْء","version":2,"digest":"23deb52ceeed5eb6"}
-{"id":"بَلْ","version":2,"digest":"81acff27c0915974"}
-{"id":"قَادِم","version":2,"digest":"39ac5fd1908e1669"}
-{"id":"صَوْت","version":2,"digest":"4fee0f8ec5b79461"}
-{"id":"الْخَاصَّة","version":2,"digest":"1605d017cb8b70fc","issues":[{"field":"example","kind":"unmarked","severity":"major","word":"الْخَاصَّة","detail":"no vowel mark on ة"},{"field":"example","kind":"diacritics","severity":"major","word":"الْخَاصَّة","detail":"CATT reads الْخَاصَّةُ; CAMeL reads الخاصَّةُ","catt":"الْخَاصَّةُ","camel":"الخاصَّةُ"}]}
-{"id":"اِتِّصَال","version":2,"digest":"e57d5a83188740ed"}
-{"id":"تَعَرَّفَ","version":2,"digest":"4d94765c80f73cf3"}
-{"id":"اِسْتِخْدَام","version":2,"digest":"a8caf008c90dab00"}
-{"id":"طَبِيب","version":2,"digest":"dbff27606fb98121"}
-{"id":"عَاشَ","version":2,"digest":"6ca0f8ca523d5c95"}
-{"id":"كَتَبَ","version":2,"digest":"38803cc790afc336","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"كَتَبَ","detail":"CATT reads كُتَبُ; CAMeL agrees with the card","catt":"كُتَبُ","camel":"كَتَبَ"},{"field":"example","kind":"diacritics","severity":"minor","word":"رِسَالَةً","detail":"CATT reads رِسَالَةٌ; CAMeL agrees with the card","catt":"رِسَالَةٌ","camel":"رِسالَةً"}]}
-{"id":"وَلَدَ","version":2,"digest":"3027a9e2162289bf"}
-{"id":"كِتَاب","version":2,"digest":"315fef1aa53bc53a"}
-{"id":"وَقَدَ","version":2,"digest":"133d94df0a846ac8","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"وَقَدَتِ","detail":"CATT reads وَقَدْتِ; CAMeL agrees with the card","catt":"وَقَدْتِ","camel":"وَقَدَت"}]}
-{"id":"دَائِمًا","version":2,"digest":"ada8bc56affaa73f"}
-{"id":"ذَات","version":2,"digest":"185be21745b301fe","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"ذَاتُ","detail":"CATT reads ذَاتِ; CAMeL agrees with the card","catt":"ذَاتِ","camel":"ذاتُ"},{"field":"example","kind":"diacritics","severity":"minor","word":"غَيْرُ","detail":"CATT reads غَيْرَ; CAMeL agrees with the card","catt":"غَيْرَ","camel":"غَيْرُ"}]}
-{"id":"حَلْقَة","version":2,"digest":"25272e324d3b23d6"}
-{"id":"ثَالِث","version":2,"digest":"feea73096c338f37"}
-{"id":"بِسَبَبِ","version":2,"digest":"d2cac09f4d63b884","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"فَقَدْتُ","detail":"CATT reads فَقَدَتْ; CAMeL agrees with the card","catt":"فَقَدَتْ","camel":"فَقَدْتُ"}]}
-{"id":"مَلْيُون","version":2,"digest":"4c7501ce2c7f0b4d","issues":[{"field":"arabic","kind":"invalid","severity":"major","word":"مَلْيُون","detail":"CAMeL does not allow these vowels; it knows مِلْيُون، مِلْيُونٌ، مِلْيُونٍ، مِلْيُونَ","known":["مِلْيُون","مِلْيُونٌ","مِلْيُونٍ","مِلْيُونَ","مِلْيُونُ","مِلْيُونِ"]},{"field":"example","kind":"diacritics","severity":"minor","word":"أَكْثَرُ","detail":"CATT reads أَكْثَرَ; CAMeL agrees with the card","catt":"أَكْثَرَ","camel":"أَكْثَرُ"},{"field":"example","kind":"invalid","severity":"major","word":"مَلْيُونِ","detail":"CAMeL does not allow these vowels; it knows مِلْيُون، مِلْيُونٌ، مِلْيُونٍ، مِلْيُونَ","known":["مِلْيُون","مِلْيُونٌ","مِلْيُونٍ","مِلْيُونَ","مِلْيُونُ","مِلْيُونِ"]},{"field":"example","kind":"diacritics","severity":"major","word":"مَلْيُونِ","detail":"CATT reads مِلْيُونِ; CAMeL reads مِلْيُونِ","catt":"مِلْيُونِ","camel":"مِلْيُونِ"}]}
-{"id":"مَجْلِس","version":2,"digest":"6696a98181e06af7","issues":[{"field":"forms","kind":"unmarked","severity":"major","word":"مَجالِس","detail":"no vowel mark on ج"}]}
-{"id":"عَدَم","version":2,"digest":"3c51f6be512f204a","issues":[{"field":"forms","kind":"invalid","severity":"major","word":"أَعْدَام","detail":"CAMeL does not allow these vowels; it knows إِعْدام، إِعْدامٌ، إِعْدامٍ، إِعْدامَ","known":["إِعْدام","إِعْدامٌ","إِعْدامٍ","إِعْدامَ","إِعْدامُ","إِعْدامِ"]}]}
-{"id":"رُؤْيَة","version":2,"digest":"e6e081b14e8b6121","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"فَقَدَ","detail":"CATT reads فَقْدُ; CAMeL agrees with the card","catt":"فَقْدُ","camel":"فَقَدَ"},{"field":"example","kind":"diacritics","severity":"minor","word":"الرُّؤْيَةَ","detail":"CATT reads الرُّؤْيَةِ; CAMeL agrees with the card","catt":"الرُّؤْيَةِ","camel":"الرُؤْيَةَ"}]}
-{"id":"مَاتَ","version":2,"digest":"71e0d20a37dbf7fb","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"بِمَرَضٍ","detail":"CATT reads بِمَرَضَ; CAMeL agrees with the card","catt":"بِمَرَضَ","camel":"بِمَرَضٍ"}]}
-{"id":"لِقَاء","version":2,"digest":"3e97eaf5e67b87b7","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"حَضَرْتُ","detail":"CATT reads حَضَرَتْ; CAMeL agrees with the card","catt":"حَضَرَتْ","camel":"حَضَرْتُ"},{"field":"example","kind":"diacritics","severity":"minor","word":"مُهِمًّا","detail":"CATT reads مَهْمَا; CAMeL agrees with the card","catt":"مَهْمَا","camel":"مُهِمّاً"}]}
-{"id":"خَطّ","version":2,"digest":"b9f55a74afeb7114","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"رَسَمَ","detail":"CATT reads رَسْمُ; CAMeL agrees with the card","catt":"رَسْمُ","camel":"رَسَمَ"},{"field":"example","kind":"diacritics","severity":"minor","word":"الطِّفْلُ","detail":"CATT reads الطِّفْلِ; CAMeL agrees with the card","catt":"الطِّفْلِ","camel":"الطِفْلُ"}]}
-{"id":"بَحَثَ","version":2,"digest":"33cc5bfff48af990","issues":[{"field":"example","kind":"diacritics","severity":"major","word":"بَحَثَ","detail":"CATT reads بَحْثُ; CAMeL reads بَحْثُ","catt":"بَحْثُ","camel":"بَحْثُ"},{"field":"example","kind":"diacritics","severity":"major","word":"الْعَالِمُ","detail":"CATT reads الْعَالَمِ; CAMeL reads العالَمِ","catt":"الْعَالَمِ","camel":"العالَمِ"}]}
-{"id":"فُرْصَة","version":2,"digest":"2873e333bf8a9b49","issues":[{"field":"example","kind":"invalid","severity":"major","word":"أُعْطِيتُ","detail":"CAMeL does not allow these vowels; it knows أَعْطَيْتَ، أَعْطَيْتُ، أَعْطَيْتِ، أُعْطِيَت","known":["أَعْطَيْتَ","أَعْطَيْتُ","أَعْطَيْتِ","أُعْطِيَت"]},{"field":"example","kind":"diacritics","severity":"major","word":"أُعْطِيتُ","detail":"CATT reads أُعْطَيْتُ; CAMeL reads أُعْطِيَت","catt":"أُعْطَيْتُ","camel":"أُعْطِيَت"}]}
-{"id":"خَيْر","version":2,"digest":"fd3602be4d777c40"}
-{"id":"مَجْمُوعَة","version":2,"digest":"c864ecff031e9d10"}
-{"id":"ظَنَّ","version":2,"digest":"46951c60c065c2db"}
-{"id":"ضِدّ","version":2,"digest":"d32c97e703fd5d4a"}
-{"id":"اِسْتَخْدَمَ","version":2,"digest":"fce9b0e6aac79e92"}
-{"id":"فِكْرَة","version":2,"digest":"0c89370a22ea23d2","issues":[{"field":"forms","kind":"invalid","severity":"major","word":"فِكَر","detail":"CAMeL does not allow these vowels; it knows فَكَرّ، فَكَرٌّ، فَكَرٍّ، فَكَرَّ","known":["فَكَرّ","فَكَرٌّ","فَكَرٍّ","فَكَرَّ","فَكَرُّ","فَكَرِّ"]}]}
-{"id":"أُمّ","version":2,"digest":"3dce18d637bc1284"}
-{"id":"بَعِيد","version":2,"digest":"dff768bf63908648","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"الْبَيْتُ","detail":"CATT reads الْبَيْتِ; CAMeL agrees with the card","catt":"الْبَيْتِ","camel":"البَيْتُ"},{"field":"example","kind":"unmarked","severity":"major","word":"جِدّاً","detail":"no vowel mark on د"}]}
-{"id":"عَرْض","version":2,"digest":"9e10b4d425e1b081"}
-{"id":"سَأَلَ","version":2,"digest":"b6b9e1a985b4a870","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"الرَّجُلُ","detail":"CATT reads الرَّجُلَ; CAMeL agrees with the card","catt":"الرَّجُلَ","camel":"الرَجُلُ"}]}
-{"id":"دَخَلَ","version":2,"digest":"97020cc5f078c44a"}
-{"id":"سَابِق","version":2,"digest":"96d0a63f17b0ebbf","issues":[{"field":"example","kind":"unmarked","severity":"major","word":"مَشْغُولاً","detail":"no vowel mark on ل"}]}
-{"id":"هَدَف","version":2,"digest":"46e4fb67bebec4e1"}
-{"id":"بَقِيَ","version":2,"digest":"542b0743c199be8b","issues":[{"field":"example","kind":"unmarked","severity":"major","word":"طَوِيلاً","detail":"no vowel mark on ل"}]}
-{"id":"نَحْو","version":2,"digest":"a93050605ffd7678"}
-{"id":"قَلْب","version":2,"digest":"e92ef815dc31ea20"}
-{"id":"دَار","version":2,"digest":"46f747efd34f0e00"}
-{"id":"تَأْكِيد","version":2,"digest":"49274b9268ed4db9"}
-{"id":"حَرْب","version":2,"digest":"892290d29b96d54a","issues":[{"field":"example","kind":"unmarked","severity":"major","word":"جِدّاً","detail":"no vowel mark on د"}]}
-{"id":"مَزِيد","version":2,"digest":"d1bb39a70509376f","issues":[{"field":"example","kind":"unmarked","severity":"major","word":"مَزِيداً","detail":"no vowel mark on د"}]}
-{"id":"يَتَّمَ","version":2,"digest":"0c8697ac9daf7dc0","issues":[{"field":"arabic","kind":"invalid","severity":"major","word":"يَتَّمَ","detail":"CAMeL does not allow these vowels; it knows يَتَمَ، يَتُمَ، يَتِم، يَتِمَ","known":["يَتَمَ","يَتُمَ","يَتِم","يَتِمَ","يَتِمّ","يُتَمّ"]},{"field":"forms","kind":"invalid","severity":"major","word":"يُيَتِّمُ","detail":"CAMeL does not allow these vowels; it knows يَيْتَم، يَيْتُم، يَيْتِم","known":["يَيْتَم","يَيْتُم","يَيْتِم"]},{"field":"forms","kind":"unknown","severity":"minor","word":"تَيْتِيم","detail":"CAMeL does not know this word, so only Wiktionary vouches for it"},{"field":"example","kind":"invalid","severity":"major","word":"يَتَّمَ","detail":"CAMeL does not allow these vowels; it knows يَتَمَ، يَتُمَ، يَتِم، يَتِمَ","known":["يَتَمَ","يَتُمَ","يَتِم","يَتِمَ","يَتِمّ","يُتَمّ"]},{"field":"example","kind":"diacritics","severity":"major","word":"يَتَّمَ","detail":"CATT reads يُتِمُّ; CAMeL reads يَتَمَ","catt":"يُتِمُّ","camel":"يَتَمَ"}]}
-{"id":"يَعْنِي","version":2,"digest":"31ed286acc8bc8ca"}
-{"id":"وَاضِح","version":2,"digest":"0f8b0717bd3a7222","issues":[{"field":"example","kind":"unmarked","severity":"major","word":"جِدّاً","detail":"no vowel mark on د"}]}
-{"id":"مَعْرِفَة","version":2,"digest":"abc8da76a3e1dec8","issues":[{"field":"example","kind":"unmarked","severity":"major","word":"جِدّاً","detail":"no vowel mark on د"}]}
-{"id":"وَفِيّ","version":2,"digest":"5727b2983b821988"}
-{"id":"دَم","version":2,"digest":"96108730d6e49ee3","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"الدَّمُ","detail":"CATT reads الدَّمِ; CAMeL agrees with the card","catt":"الدَّمِ","camel":"الدَمُ"}]}
-{"id":"لَمَّا","version":2,"digest":"2158a37ba0faeca3"}
-{"id":"عِلَاج","version":2,"digest":"a3e2005e8fca78ea"}
-{"id":"اِنْتَظَرَ","version":2,"digest":"03e0d5eb13ea8ba3"}
-{"id":"مِمَّا","version":2,"digest":"5bf7f5cc4cfcc1ea"}
-{"id":"جَمِيل","version":2,"digest":"b68a028386031e8a"}
-{"id":"قَرَار","version":2,"digest":"d58b7ca6b33088cb"}
-{"id":"قَدِيم","version":2,"digest":"7dae839a9065c258","issues":[{"field":"forms","kind":"unknown","severity":"minor","word":"قَدِيمُون","detail":"CAMeL does not know this word, so only Wiktionary vouches for it"}]}
-{"id":"مُدِير","version":2,"digest":"c6e251a05ac82f3c","issues":[{"field":"forms","kind":"unmarked","severity":"major","word":"مُدَراء","detail":"no vowel mark on ر"},{"field":"example","kind":"invalid","severity":"major","word":"مُشْغُولٌ","detail":"CAMeL does not allow these vowels; it knows مَشْغُول، مَشْغُولٌ، مَشْغُولٍ، مَشْغُولَ","known":["مَشْغُول","مَشْغُولٌ","مَشْغُولٍ","مَشْغُولَ","مَشْغُولُ","مَشْغُولِ"]},{"field":"example","kind":"diacritics","severity":"major","word":"مُشْغُولٌ","detail":"CATT reads مَشْغُولٌ; CAMeL reads مَشْغُولٌ","catt":"مَشْغُولٌ","camel":"مَشْغُولٌ"}]}
-{"id":"دَفَعَ","version":2,"digest":"b3742a31b0354e2e","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"دَفَعَ","detail":"CATT reads دَفْعُ; CAMeL agrees with the card","catt":"دَفْعُ","camel":"دَفَعَ"},{"field":"example","kind":"diacritics","severity":"minor","word":"الرَّجُلُ","detail":"CATT reads الرَّجُلِ; CAMeL agrees with the card","catt":"الرَّجُلِ","camel":"الرَجُلُ"}]}
-{"id":"دَرَجَة","version":2,"digest":"e390eadb1c56fbc6","issues":[{"field":"example","kind":"unmarked","severity":"major","word":"جَيِّدَة","detail":"no vowel mark on ة"},{"field":"example","kind":"diacritics","severity":"major","word":"جَيِّدَة","detail":"CATT reads جَيِّدَةٌ; CAMeL reads جَيِّدَةٌ","catt":"جَيِّدَةٌ","camel":"جَيِّدَةٌ"}]}
-{"id":"فَهِمَ","version":2,"digest":"80f0482030a45a7d","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"فَهِمَ","detail":"CATT reads فَهُمَ; CAMeL agrees with the card","catt":"فَهُمَ","camel":"فَهِمَ"}]}
-{"id":"تَارِيخ","version":2,"digest":"af5527d31c3d4e79"}
-{"id":"صَاحِب","version":2,"digest":"ec8b39e99b2dc9f5"}
-{"id":"سَعِيد","version":2,"digest":"ad817ab96595ec5f","issues":[{"field":"forms","kind":"unknown","severity":"minor","word":"سَعِيدُون","detail":"CAMeL does not know this word, so only Wiktionary vouches for it"}]}
-{"id":"أَطْلَقَ","version":2,"digest":"33cf552d693fe9de","issues":[{"field":"example","kind":"invalid","severity":"major","word":"مِشْرُوعًا","detail":"CAMeL does not allow these vowels; it knows مَشْرُوعا، مَشْرُوعاً","known":["مَشْرُوعا","مَشْرُوعاً"]},{"field":"example","kind":"diacritics","severity":"major","word":"مِشْرُوعًا","detail":"CATT reads مَشْرُوعًا; CAMeL reads مَشْرُوعاً","catt":"مَشْرُوعًا","camel":"مَشْرُوعاً"}]}
-{"id":"دَوْلَة","version":2,"digest":"b6c5de4269e41efb","issues":[{"field":"example","kind":"unmarked","severity":"major","word":"قَوِيَّة","detail":"no vowel mark on ة"},{"field":"example","kind":"diacritics","severity":"major","word":"قَوِيَّة","detail":"CATT reads قَوِيَّةٌ; CAMeL reads قَوِيَّةٌ","catt":"قَوِيَّةٌ","camel":"قَوِيَّةٌ"}]}
-{"id":"حَقِيقِيّ","version":2,"digest":"4a0e98670bad91d7"}
-{"id":"عَبْرَ","version":2,"digest":"43d704a447d3cd7d"}
-{"id":"غُرْفَة","version":2,"digest":"42f7fd4a031671b5","issues":[{"field":"example","kind":"unmarked","severity":"major","word":"كَبِيرَة","detail":"no vowel mark on ة"},{"field":"example","kind":"diacritics","severity":"major","word":"كَبِيرَة","detail":"CATT reads كَبِيرَةٌ; CAMeL reads كَبِيرَةٌ","catt":"كَبِيرَةٌ","camel":"كَبِيرَةٌ"}]}
-{"id":"لِذٰلِكَ","version":2,"digest":"b767e9320f0fba67"}
-{"id":"جَرِيمَة","version":2,"digest":"bcbed2037b8d3d1b","issues":[{"field":"example","kind":"unmarked","severity":"major","word":"خَطِيرَة","detail":"no vowel mark on ة"},{"field":"example","kind":"diacritics","severity":"major","word":"خَطِيرَة","detail":"CATT reads خَطِيرَةٌ; CAMeL reads خَطِيرَةٌ","catt":"خَطِيرَةٌ","camel":"خَطِيرَةٌ"}]}
-{"id":"لُغَة","version":2,"digest":"f5b782a8a0748ceb","issues":[{"field":"example","kind":"unmarked","severity":"major","word":"الْعَرَبِيَّة","detail":"no vowel mark on ة"},{"field":"example","kind":"diacritics","severity":"major","word":"الْعَرَبِيَّة","detail":"CATT reads الْعَرَبِيَّةُ; CAMeL reads العَرَبِيَّةُ","catt":"الْعَرَبِيَّةُ","camel":"العَرَبِيَّةُ"},{"field":"example","kind":"unmarked","severity":"major","word":"جَمِيلَة","detail":"no vowel mark on ة"},{"field":"example","kind":"diacritics","severity":"major","word":"جَمِيلَة","detail":"CATT reads جَمِيلَةُ; CAMeL reads جَمِيلَةٌ","catt":"جَمِيلَةُ","camel":"جَمِيلَةٌ"}]}
-{"id":"عُمُر","version":2,"digest":"ad2c91683e0e2c44","issues":[{"field":"arabic","kind":"invalid","severity":"major","word":"عُمُر","detail":"CAMeL does not allow these vowels; it knows عَمَرَ، عَمُرَ، عَمِرَ، عَمَّرَ","known":["عَمَرَ","عَمُرَ","عَمِرَ","عَمَّرَ","عُمَر","عُمْر"]},{"field":"example","kind":"invalid","severity":"major","word":"عُمُرُ","detail":"CAMeL does not allow these vowels; it knows عَمَرَ، عَمُرَ، عَمِرَ، عَمَّرَ","known":["عَمَرَ","عَمُرَ","عَمِرَ","عَمَّرَ","عُمَر","عُمْر"]},{"field":"example","kind":"diacritics","severity":"major","word":"عُمُرُ","detail":"CATT reads عُمَرُ; CAMeL reads عُمْرُ","catt":"عُمَرُ","camel":"عُمْرُ"}]}
-{"id":"مَادَّة","version":2,"digest":"2517ea20a16a32b2","issues":[{"field":"example","kind":"unmarked","severity":"major","word":"مُهِمَّة","detail":"no vowel mark on ة"},{"field":"example","kind":"diacritics","severity":"major","word":"مُهِمَّة","detail":"CATT reads مُهِمَّةٌ; CAMeL reads مُهِمَّةٌ","catt":"مُهِمَّةٌ","camel":"مُهِمَّةٌ"}]}
-{"id":"سُرْعَة","version":2,"digest":"cf489e751134b463","issues":[{"field":"example","kind":"unmarked","severity":"major","word":"عَالِيَة","detail":"no vowel mark on ة"},{"field":"example","kind":"diacritics","severity":"major","word":"عَالِيَة","detail":"CATT reads عَالِيَةٌ; CAMeL reads عالِيَةٌ","catt":"عَالِيَةٌ","camel":"عالِيَةٌ"}]}
-{"id":"سَيِّدَة","version":2,"digest":"5b2c6c08dd3eb6d8","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"السَّيِّدَةُ","detail":"CATT reads السَّيِّدَةِ; CAMeL agrees with the card","catt":"السَّيِّدَةِ","camel":"السَيِّدَةُ"}]}
-{"id":"حَاجَة","version":2,"digest":"fb291833d4c9f9d3","issues":[{"field":"example","kind":"unmarked","severity":"major","word":"الْمَسَاعَدَة","detail":"no vowel mark on ة"},{"field":"example","kind":"invalid","severity":"major","word":"الْمَسَاعَدَة","detail":"CAMeL does not allow these vowels; it knows المُساعَدَة، المُساعَدَةَ، المُساعَدَةُ، المُساعَدَةِ","known":["المُساعَدَة","المُساعَدَةَ","المُساعَدَةُ","المُساعَدَةِ","المُساعِدَة","المُساعِدَةَ"]},{"field":"example","kind":"diacritics","severity":"major","word":"الْمَسَاعَدَة","detail":"CATT reads الْمُسَاعَدَةِ; CAMeL reads المُساعَدَةِ","catt":"الْمُسَاعَدَةِ","camel":"المُساعَدَةِ"}]}
-{"id":"إِطْلَاق","version":2,"digest":"89558aecdd2079cf","issues":[{"field":"example","kind":"invalid","severity":"major","word":"الْمِشْرُوعِ","detail":"CAMeL does not allow these vowels; it knows المَشْرُوع، المَشْرُوعَ، المَشْرُوعُ، المَشْرُوعِ","known":["المَشْرُوع","المَشْرُوعَ","المَشْرُوعُ","المَشْرُوعِ"]},{"field":"example","kind":"diacritics","severity":"major","word":"الْمِشْرُوعِ","detail":"CATT reads الْمَشْرُوعِ; CAMeL reads المَشْرُوعِ","catt":"الْمَشْرُوعِ","camel":"المَشْرُوعِ"}]}
-{"id":"حَسَنًا","version":2,"digest":"de9af18d9e27ce0f"}
-{"id":"سِلَاح","version":2,"digest":"7a9c2b1b43695f34"}
-{"id":"تَمَامًا","version":2,"digest":"7a440510ec919abd"}
-{"id":"تَحْقِيق","version":2,"digest":"474e9805c99b1c5e"}
-{"id":"دَوْر","version":2,"digest":"9f3d68df2db5be8c"}
-{"id":"عَوْدَة","version":2,"digest":"4ebbcc82ab6dd847","issues":[{"field":"forms","kind":"unknown","severity":"minor","word":"عَوْدَات","detail":"CAMeL does not know this word, so only Wiktionary vouches for it"}]}
-{"id":"رَغْم","version":2,"digest":"a1f97cfa9fb977da"}
-{"id":"مُنَاسِب","version":2,"digest":"9276b9d166169829"}
-{"id":"لِهٰذَا","version":2,"digest":"2f6396e2689ebaa9"}
-{"id":"وُصُول","version":2,"digest":"8905e80356a1955d"}
-{"id":"وَقَعَ","version":2,"digest":"06e93a469d36b00d"}
-{"id":"وَاقِع","version":2,"digest":"c5df6932fbf77d97"}
-{"id":"وَحِيد","version":2,"digest":"aa87810789854dd4","issues":[{"field":"forms","kind":"unknown","severity":"minor","word":"وَحِيدُون","detail":"CAMeL does not know this word, so only Wiktionary vouches for it"}]}
-{"id":"لَحْظَة","version":2,"digest":"f34fb900c8928f23","issues":[{"field":"example","kind":"invalid","severity":"major","word":"انْتَظِرْ","detail":"CAMeL does not allow these vowels; it knows أَنْتَظِر، أُنْتَظَر، اِنْتَظَرَ","known":["أَنْتَظِر","أُنْتَظَر","اِنْتَظَرَ"]},{"field":"example","kind":"diacritics","severity":"major","word":"انْتَظِرْ","detail":"CATT reads اُنْتَظَرَ; CAMeL reads أَنْتَظِر","catt":"اُنْتَظَرَ","camel":"أَنْتَظِر"}]}
-{"id":"اِخْتَارَ","version":2,"digest":"3625e6004c6d8002"}
-{"id":"حَقًّا","version":2,"digest":"785225ba50428222"}
-{"id":"مِئَة","version":2,"digest":"29d7d6d36653feed"}
-{"id":"هٰكَذَا","version":2,"digest":"1c26e45da9a98605","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"تَفْعَلَ","detail":"CATT reads تُفْعَلَ; CAMeL agrees with the card","catt":"تُفْعَلَ","camel":"تَفْعَل"}]}
-{"id":"حِمَايَة","version":2,"digest":"73fb087d55710b8b"}
-{"id":"طَالِب","version":2,"digest":"45c047211f01c290","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"يَدْرُسُ","detail":"CATT reads يُدَرِّسُ; CAMeL agrees with the card","catt":"يُدَرِّسُ","camel":"يَدْرُس"}]}
-{"id":"أَبْيَض","version":2,"digest":"ed7e3d503bc48d99"}
-{"id":"صَفّ","version":2,"digest":"9135cbd92a0e8154"}
-{"id":"لَيْلَة","version":2,"digest":"4d0a221adad71554"}
-{"id":"كَبِيرَة","version":2,"digest":"d4dacabd4fffcb47"}
-{"id":"إِلَيْهِ","version":2,"digest":"806ab710b656cc55"}
+{"id":"فِي","digest":"3279d038eb24a6bd"}
+{"id":"مِنْ","digest":"e0ea80002f3e4f89"}
+{"id":"عَلَى","digest":"d0f0708f1da9d733","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"الْكِتَابُ","detail":"CATT reads الْكِتَابِ; CAMeL agrees with the card","catt":"الْكِتَابِ","camel":"الكِتابُ"}]}
+{"id":"أَنَّ","digest":"ee464df32437d0a1"}
+{"id":"هٰذَا","digest":"1aa9964aa7dda02f"}
+{"id":"كَانَ","digest":"01ba64fe7139d49a"}
+{"id":"لَا","digest":"bb26f3fe34a7887e"}
+{"id":"أَنْ","digest":"f02a76a46b80a589"}
+{"id":"إِلَى","digest":"40702e224f979c9b"}
+{"id":"مَرْحَبًا","digest":"1c369b9cfa0850ef"}
+{"id":"وَ","digest":"864829a9bea350be"}
+{"id":"اَلَّذِي","digest":"c375f15144e86d6d"}
+{"id":"مَا","digest":"c6d6f283a5f8fbee"}
+{"id":"عَنْ","digest":"57c3e55bb31253ed"}
+{"id":"السَّلَامُ عَلَيْكُمْ","digest":"2210cd4ec575bdb0"}
+{"id":"لِـ","digest":"c624a6fa814247b1"}
+{"id":"مَعَ","digest":"e911b8597d68ea6e"}
+{"id":"ذٰلِكَ","digest":"2cd6d9878447ecda"}
+{"id":"هُوَ","digest":"8c8ff8bc27c1d74e"}
+{"id":"شُكْرًا","digest":"d28fcf22041a3375"}
+{"id":"كُلّ","digest":"a58024bc95501d9b"}
+{"id":"قَالَ","digest":"4dac095bd2287049"}
+{"id":"بِـ","digest":"427399188fc3c4aa"}
+{"id":"لٰكِنَّ","digest":"a615d9964e4e6ab4","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"الْبَيْتُ","detail":"CATT reads الْبَيْتِ; CAMeL agrees with the card","catt":"الْبَيْتِ","camel":"البَيْتُ"}]}
+{"id":"نَعَمْ","digest":"90aebd93d7172e23"}
+{"id":"لَمْ","digest":"1913110aa560f9ec"}
+{"id":"آخَر","digest":"1e06d36c7033f347"}
+{"id":"أَوْ","digest":"b59b1ba7ec84d855"}
+{"id":"لَيْسَ","digest":"07337dd8d73bcf6c"}
+{"id":"وَاحِد","digest":"0caff414594d2e8b"}
+{"id":"أَنَا","digest":"765cfc215805eeb9"}
+{"id":"إِنَّ","digest":"09f4516420f44f52"}
+{"id":"أَيّ","digest":"c0b0a835f7ef2f4e","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"أَيَّ","detail":"CATT reads أَيْ; CAMeL agrees with the card","catt":"أَيْ","camel":"أَيّ"},{"field":"example","kind":"diacritics","severity":"minor","word":"تُفَضِّلُ","detail":"CATT reads تَفْضُل; CAMeL agrees with the card","catt":"تَفْضُل","camel":"تُفَضِّل"}]}
+{"id":"شَيْء","digest":"f41b4c139ff1094c"}
+{"id":"هِيَ","digest":"8473af78432419c2"}
+{"id":"أَمْر","digest":"2d3ea9dde9623397"}
+{"id":"بَعْدَ","digest":"48b30f86f7d9acdd","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"الشَّايَ","detail":"CATT reads الشَّايِ; CAMeL agrees with the card","catt":"الشَّايِ","camel":"الشاي"}]}
+{"id":"يُمْكِنُ","digest":"6df02f56885d560c"}
+{"id":"عَمَل","digest":"574c38813a945615"}
+{"id":"أَهْلًا","digest":"21ae6c388a87c26f"}
+{"id":"أَرَادَ","digest":"4b4df8625ab290a4"}
+{"id":"إِذَا","digest":"37b6af4f4a5b61a5","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"سَنَخْرُجُ","detail":"CATT reads سَنَخْرِجُ; CAMeL agrees with the card","catt":"سَنَخْرِجُ","camel":"سَنَخْرُج"}]}
+{"id":"يَا","digest":"68000db01389c052"}
+{"id":"قَامَ","digest":"be512d46363854c7"}
+{"id":"اِثْنَان","digest":"d0a7f8c74133fa96"}
+{"id":"هُنَاكَ","digest":"81ffc6be5655a0e8"}
+{"id":"لَدَى","digest":"fbf13f02fcabc1e1"}
+{"id":"حَتَّى","digest":"b6ebdb2138ab2d54","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"الْمَسَاءِ","detail":"CATT reads الْمَسَاءَ; CAMeL agrees with the card","catt":"الْمَسَاءَ","camel":"المَساءِ"}]}
+{"id":"هَلْ","digest":"8516ec7af16817b5","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"الْعَرَبِيَّةَ","detail":"CATT reads الْعَرَبِيَّةُ; CAMeL agrees with the card","catt":"الْعَرَبِيَّةُ","camel":"العَرَبِيَّةَ"}]}
+{"id":"مِنْ فَضْلِكَ","digest":"034cc8d2f0b95c73"}
+{"id":"أَنْتَ","digest":"75411126a9258f5d"}
+{"id":"هُنَا","digest":"2ff4367e4d2963a4"}
+{"id":"نَظَرَ","digest":"ca9b2304e7ae93a2"}
+{"id":"الْآنَ","digest":"cf00b4f95bfecbad"}
+{"id":"بَعْض","digest":"6d39ad4d11ad592c"}
+{"id":"وَقْت","digest":"8849bcf148cddbf6"}
+{"id":"رَجُل","digest":"23b780cc6799da82"}
+{"id":"جَمِيع","digest":"ce43fc514902e8b4"}
+{"id":"قَبْلَ","digest":"aa6d443db428b522","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"وَصَلْتُ","detail":"CATT reads وَصَلَّتْ; CAMeL agrees with the card","catt":"وَصَلَّتْ","camel":"وَصَلْتُ"}]}
+{"id":"ثَلَاثَة","digest":"03cbbeb089a4d832"}
+{"id":"فَقَطْ","digest":"6b33fa1c4f250c76","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"أُرِيدُ","detail":"CATT reads أُرِيدَ; CAMeL agrees with the card","catt":"أُرِيدَ","camel":"أُرِيد"}]}
+{"id":"غَيْر","digest":"fbda8dad1316dcbf"}
+{"id":"أَوَّل","digest":"1f7dc64ceb83a553"}
+{"id":"أَحَد","digest":"f0c60961f5d603b6"}
+{"id":"عَفْوًا","digest":"120c77a562500471"}
+{"id":"طِفْل","digest":"ce9319436c1b9061"}
+{"id":"رَأَى","digest":"d9c6666e034c096b"}
+{"id":"قَدْ","digest":"dd816cdbdcf0700c"}
+{"id":"مِنْ أَجْلِ","digest":"b78457424381f8ab"}
+{"id":"مَعَ ٱلسَّلَامَةِ","digest":"a545a50ec9195243","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"أَرَاكَ","detail":"CATT reads أَرَاكٌ; CAMeL agrees with the card","catt":"أَرَاكٌ","camel":"أَراكَ"}]}
+{"id":"نَفْس","digest":"51f1c4eb22d97912"}
+{"id":"الْيَوْمَ","digest":"64f97c578749a3b9","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"جَمِيلٌ","detail":"CATT reads جَمِيلُ; CAMeL agrees with the card","catt":"جَمِيلُ","camel":"جَمِيلٌ"},{"field":"example","kind":"diacritics","severity":"minor","word":"الْيَوْمَ","detail":"CATT reads الْيَوْمِ; CAMeL agrees with the card","catt":"الْيَوْمِ","camel":"اليَوْمَ"}]}
+{"id":"أَكْثَر","digest":"4ef01760dd0af4dc","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"أُرِيدُ","detail":"CATT reads أُرِيدَ; CAMeL agrees with the card","catt":"أُرِيدَ","camel":"أُرِيد"}]}
+{"id":"لَقَدْ","digest":"a57eea676941550d"}
+{"id":"عَام","digest":"21ea32cbcf938a77","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"تَخَرَّجَ","detail":"CATT reads تُخْرِجُ; CAMeL agrees with the card","catt":"تُخْرِجُ","camel":"تَخَرَّجَ"}]}
+{"id":"يَوْم","digest":"6d27404fc3b8f1b4"}
+{"id":"سَيِّد","digest":"0df591a5a7afd3cc","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"صَبَاحُ","detail":"CATT reads صَبَاحَ; CAMeL agrees with the card","catt":"صَبَاحَ","camel":"صَباحُ"}]}
+{"id":"بَيْنَ","digest":"f27f75514a7ab7f8","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"وَالْمَطْعَمِ","detail":"CATT reads وَالْمُطْعِمِ; CAMeL agrees with the card","catt":"وَالْمُطْعِمِ","camel":"وَالمَطْعَمِ"}]}
+{"id":"شَخْص","digest":"db56ac5bc80e8cb7"}
+{"id":"أَرْبَعَة","digest":"1568df5ee28d3d3a","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"أَرْبَعُ","detail":"CATT reads أَرْبَعٌ; CAMeL agrees with the card","catt":"أَرْبَعٌ","camel":"أَرْبَع"}]}
+{"id":"نَحْنُ","digest":"91d5c112cb7678d1"}
+{"id":"عِنْدَ","digest":"5f818df4a880de63"}
+{"id":"حَدَثَ","digest":"83a45608be2482fa","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"حَدَثَ","detail":"CATT reads حَدَّثَ; CAMeL agrees with the card","catt":"حَدَّثَ","camel":"حَدَثَ"}]}
+{"id":"أَيْضًا","digest":"12f5ba6e164a50c3"}
+{"id":"كَمَا","digest":"f9472b5a4a4d7b0f"}
+{"id":"وَجَدَ","digest":"48ca3f6eadf580e7"}
+{"id":"عَالَم","digest":"9436ac5d574f5fa3"}
+{"id":"أَفْضَل","digest":"1f197252322e3ba9"}
+{"id":"جَدِيد","digest":"fde0746dc9695b14","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"اِشْتَرَيْتُ","detail":"CATT reads اشْتَرَيْتَ; CAMeL agrees with the card","catt":"اشْتَرَيْتَ","camel":"اِشْتَرَيْتُ"}]}
+{"id":"إِنْ شَاءَ ٱللّٰهُ","digest":"37fb06d3218be37e"}
+{"id":"مَكَان","digest":"b65beac7307d16b1"}
+{"id":"سَنَة","digest":"f790fbdf6a7efa0f"}
+{"id":"يَجِبُ","digest":"fff69067fc110be5"}
+{"id":"تَمَّ","digest":"a740224603d8564c"}
+{"id":"خَمْسَة","digest":"bdab86dac9ba7e0e"}
+{"id":"اِسْتَطَاعَ","digest":"03de70ab873f1744"}
+{"id":"مِثْل","digest":"d20af1889c1d46ee","issues":[{"field":"example","kind":"diacritics","severity":"minor","word":"مِثْلَ","detail":"CATT reads مِثْلُ; CAMeL agrees with the card","catt":"مِثْلُ","camel":"مِثْلَ"}]}
+{"id":"عَرَفَ","digest":"362b7439b77b2f7a"}
+{"id":"فَعَلَ","digest":"984540ecf7ce3496"}
+{"id":"مَاذَا","digest":"ce0211c85930e4f2"}
