@@ -31,11 +31,21 @@ type harness struct {
 	mu        sync.Mutex
 	feedbacks []string
 	rewrite   func(notes.Note) (notes.Note, error)
+	remake    func(notes.Note, string) (*notes.AudioCheck, error)
+	removed   []string
+	removeErr error
+	voice     string
+	voiceErr  error
+	listErr   error
 }
 
 func newHarness(t *testing.T) *harness {
+	return newFilteredHarness(t, Filter{Minor: true})
+}
+
+func newFilteredHarness(t *testing.T, filter Filter) *harness {
 	h := &harness{t: t, f: newFixture()}
-	items, _ := h.f.items(true)
+	items, _ := h.f.items(filter)
 	dir := t.TempDir()
 	clip := filepath.Join(dir, "ar-bab.mp3")
 	font := filepath.Join(dir, "font.ttf")
@@ -61,6 +71,34 @@ func newHarness(t *testing.T) *harness {
 			}
 			return ""
 		},
+		Remake: func(_ context.Context, n notes.Note, field string) (*notes.AudioCheck, error) {
+			if h.remake == nil {
+				return nil, nil
+			}
+			return h.remake(n, field)
+		},
+		Remove: func(n notes.Note, field string) error {
+			h.removed = append(h.removed, n.ID+" "+field)
+			return h.removeErr
+		},
+		Voice: "ar-XA-Chirp3-HD-Kore",
+		Voices: func(context.Context) ([]VoiceOption, error) {
+			if h.listErr != nil {
+				return nil, h.listErr
+			}
+			return []VoiceOption{
+				{Name: "ar-XA-Chirp3-HD-Kore", Tier: "Chirp3-HD", Gender: "Female"},
+				{Name: "ar-XA-Wavenet-B", Tier: "Wavenet", Gender: "Male"},
+			}, nil
+		},
+		SetVoice: func(name string) error {
+			if h.voiceErr != nil {
+				return h.voiceErr
+			}
+			h.voice = name
+			return nil
+		},
+		All:      filter.All,
 		FontPath: font,
 	}
 	h.s = newSession(context.Background(), h.f.ns, items, opts)
@@ -286,8 +324,8 @@ func TestFlagsAreExplainedWithHighlights(t *testing.T) {
 		t.Errorf("example classes %q", got)
 	}
 	audio := h.state(2).Entry
-	if !audio.Audio.Sentence || audio.Audio.Word {
-		t.Errorf("audio %+v", audio.Audio)
+	if want := []clipView{{Kind: "word"}, {Kind: "sentence", Ready: true}}; !slices.Equal(audio.Clips, want) {
+		t.Errorf("clips %+v", audio.Clips)
 	}
 	heard := audio.Flags[0].Rows[1]
 	if heard.Label != "heard" || !slices.Equal(classes(heard.Spans), []string{"mark-audio"}) || !strings.Contains(heard.Spans[len(heard.Spans)-1].T, "الان") {
@@ -338,9 +376,130 @@ func TestServerOnlyAnswersItsOwnPage(t *testing.T) {
 	}
 }
 
+func TestClipsAreRemadeAndRemoved(t *testing.T) {
+	h := newHarness(t)
+	if !h.state(2).Audio {
+		t.Fatal("the page should offer the audio buttons")
+	}
+	text := h.state(2).Entry.Note.Example
+	h.remake = func(n notes.Note, field string) (*notes.AudioCheck, error) {
+		if field != "ExampleAudio" {
+			return nil, nil
+		}
+		return &notes.AudioCheck{ID: n.ID, Field: field, Text: text, File: "ar-bab.mp3", Transcript: "اغلق الشباك", Match: false}, nil
+	}
+	code, res := h.post("remake", 2, clipRequest{Clip: "sentence"})
+	if code != http.StatusOK || res.Show != 2 || !strings.Contains(res.Message, `heard "اغلق الشباك"`) {
+		t.Fatalf("remake: %d %+v", code, res)
+	}
+	if flags := h.state(2).Entry.Flags; len(flags) != 1 || !strings.Contains(spanText(flags[0].Rows[1].Spans), "الشباك") {
+		t.Fatalf("the flag should show what was heard this time: %+v", flags)
+	}
+	h.remake = func(n notes.Note, field string) (*notes.AudioCheck, error) {
+		return &notes.AudioCheck{ID: n.ID, Field: field, Text: text, File: "ar-bab.mp3", Transcript: "اغلق الباب", Match: true}, nil
+	}
+	if _, res = h.post("remake", 2, clipRequest{Clip: "sentence"}); !strings.Contains(res.Message, "transcribes back") {
+		t.Fatalf("a matching remake: %+v", res)
+	}
+	if flags := h.state(2).Entry.Flags; len(flags) != 0 {
+		t.Fatalf("a clip that transcribes back should clear its flag: %+v", flags)
+	}
+	h.remake = nil
+	if _, res = h.post("remake", 0, clipRequest{Clip: "word"}); !strings.Contains(res.Message, "word audio") {
+		t.Errorf("remaking a word clip: %+v", res)
+	}
+	if code, res = h.post("remake", 2, clipRequest{Clip: "nothing"}); code != http.StatusBadRequest || !strings.Contains(res.Message, `no "nothing" clip`) {
+		t.Errorf("an unknown clip: %d %+v", code, res)
+	}
+	if code, res = h.post("remove", 2, clipRequest{Clip: "sentence"}); code != http.StatusOK || !strings.Contains(res.Message, "Removed the sentence audio") {
+		t.Fatalf("remove: %d %+v", code, res)
+	}
+	if !slices.Equal(h.removed, []string{"بَاب ExampleAudio"}) {
+		t.Errorf("removed %q", h.removed)
+	}
+	h.removeErr = errors.New("permission denied")
+	if code, res = h.post("remove", 2, clipRequest{Clip: "word"}); code != http.StatusInternalServerError || !strings.Contains(res.Message, "permission denied") {
+		t.Errorf("a failing remove: %d %+v", code, res)
+	}
+}
+
+func TestTheVoiceIsChosenOnceForEveryNewClip(t *testing.T) {
+	h := newHarness(t)
+	if v := h.state(0); v.Voice != "ar-XA-Chirp3-HD-Kore" {
+		t.Fatalf("voice = %q", v.Voice)
+	}
+	w := h.do("GET", "api/voices?i=0", nil, nil)
+	var list voicesView
+	if err := json.Unmarshal(w.Body.Bytes(), &list); err != nil || w.Code != http.StatusOK {
+		t.Fatalf("voices: %d %s", w.Code, w.Body)
+	}
+	if list.Voice != "ar-XA-Chirp3-HD-Kore" || len(list.Voices) != 2 || list.Voices[1].Gender != "Male" {
+		t.Fatalf("voices %+v", list)
+	}
+	code, res := h.post("voice", 0, voiceRequest{Voice: "ar-XA-Wavenet-B"})
+	if code != http.StatusOK || res.Show != 0 || !strings.Contains(res.Message, "ar-XA-Wavenet-B speaks every clip") {
+		t.Fatalf("voice: %d %+v", code, res)
+	}
+	if h.voice != "ar-XA-Wavenet-B" || h.state(0).Voice != "ar-XA-Wavenet-B" {
+		t.Fatalf("the choice should be kept: %q", h.voice)
+	}
+	h.voice = ""
+	if _, res = h.post("voice", 0, voiceRequest{Voice: "ar-XA-Wavenet-B"}); res.Message != "" || h.voice != "" {
+		t.Errorf("the same voice again should change nothing: %+v", res)
+	}
+	if code, res = h.post("voice", 0, voiceRequest{Voice: ""}); code != http.StatusBadRequest || !strings.Contains(res.Message, "no voice") {
+		t.Errorf("an empty voice: %d %+v", code, res)
+	}
+	h.voiceErr = errors.New("deck.json is read-only")
+	if code, res = h.post("voice", 0, voiceRequest{Voice: "ar-XA-Standard-A"}); code != http.StatusInternalServerError || !strings.Contains(res.Message, "read-only") {
+		t.Errorf("a failing save: %d %+v", code, res)
+	}
+	if h.state(0).Voice != "ar-XA-Wavenet-B" {
+		t.Error("a failed save should leave the voice alone")
+	}
+	h.listErr = errors.New("no credentials found")
+	h2 := newHarness(t)
+	h2.listErr = h.listErr
+	if w = h2.do("GET", "api/voices?i=0", nil, nil); w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "no credentials found") {
+		t.Errorf("a failing listing: %d %s", w.Code, w.Body)
+	}
+}
+
+func TestWithAllEveryNoteIsListed(t *testing.T) {
+	h := newFilteredHarness(t, Filter{Minor: true, All: true})
+	v := h.state(4)
+	if !v.All || len(v.List) != 5 || v.List[4].Flags != 0 || v.List[4].Tone != "plain" {
+		t.Fatalf("list %+v", v.List)
+	}
+	if e := v.Entry; len(e.Flags) != 0 || e.Stale {
+		t.Fatalf("an unflagged note: %+v", e)
+	}
+	if !h.state(2).Entry.Stale {
+		t.Error("a note that changed after the check should say so")
+	}
+	code, res := h.post("keep", 4, nil)
+	if code != http.StatusOK || h.saves != 0 || strings.Contains(res.Message, "flags") {
+		t.Fatalf("keeping a note without flags: %d %+v, saves %d", code, res, h.saves)
+	}
+	if st := h.state(4).Entry.State; st != "kept" {
+		t.Errorf("state = %s", st)
+	}
+	if _, res = h.post("undo", -1, nil); res.Show != 4 || h.state(4).Entry.State != "open" {
+		t.Errorf("undo: %+v", res)
+	}
+}
+
+func spanText(list []span) string {
+	var b strings.Builder
+	for _, s := range list {
+		b.WriteString(s.T)
+	}
+	return b.String()
+}
+
 func TestServeRunsUntilFinished(t *testing.T) {
 	f := newFixture()
-	items, _ := f.items(true)
+	items, _ := f.items(Filter{Minor: true})
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	urls := make(chan string, 1)

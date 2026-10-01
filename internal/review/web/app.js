@@ -8,6 +8,7 @@ const POS_LABEL = {
 const GENDER_LABEL = { m: 'masc.', f: 'fem.', 'm+f': 'masc./fem.' };
 const KEY_LABEL = { enter: 'enter', esc: 'esc', left: '←', right: '→', 'ctrl+enter': 'ctrl+enter' };
 const FIX_LABEL = { catt: 'Use CATT\'s ending', camel: 'Use CAMeL\'s ending', both: 'Add the ending' };
+const PLAY_KEY = { word: 'w', forms: 'f', sentence: 's' };
 
 const state = {
   view: null,
@@ -19,6 +20,8 @@ const state = {
   original: '',
   message: { text: '', tone: 'info' },
   playing: '',
+  voices: null,
+  voicesNote: '',
   poll: 0,
   seq: 0,
   pending: 0,
@@ -137,6 +140,19 @@ async function act(action, body) {
   if (res.show !== state.current) stopAudio();
   state.current = res.show;
   await load(res.show);
+  return res;
+}
+
+async function remake(kind) {
+  say('♪ Making the ' + kind + ' audio with Google Text-to-Speech…', 'audio');
+  if (!(await act('remake', { clip: kind }))) return;
+  const e = state.view && state.view.entry;
+  if (e && ready(e, kind)) play(kind);
+}
+
+function removeClip(kind) {
+  if (!window.confirm('Delete the ' + kind + ' MP3? Remake or \'arabic-vocab audio\' makes it again.')) return;
+  act('remove', { clip: kind });
 }
 
 function announce(view) {
@@ -204,11 +220,20 @@ function move(d) {
   go(next >= total ? -1 : next);
 }
 
+function clipOf(e, kind) {
+  return (e.clips || []).find((c) => c.kind === kind) || null;
+}
+
+function ready(e, kind) {
+  const c = clipOf(e, kind);
+  return !!(c && c.ready);
+}
+
 function play(kind) {
   const e = state.view && state.view.entry;
   if (!e) return;
-  if (!e.audio[kind]) {
-    say('There is no audio for this ' + kind + ' yet; \'arabic-vocab audio\' makes it', 'info');
+  if (!ready(e, kind)) {
+    say('There is no audio for this ' + kind + ' yet; \'Remake\' or \'arabic-vocab audio\' makes it', 'info');
     return;
   }
   player.pause();
@@ -370,8 +395,9 @@ function actions() {
       }
     }
   }
-  if (e.audio.sentence) list.push({ key: 'p', label: 'Play sentence', run: () => play('sentence'), tone: 'audio' });
-  if (e.audio.word) list.push({ key: 'w', label: 'Play word', run: () => play('word'), tone: 'audio' });
+  for (const kind of Object.keys(PLAY_KEY)) {
+    if (ready(e, kind)) list.push({ key: PLAY_KEY[kind], label: 'Play ' + kind, run: () => play(kind), tone: 'audio' });
+  }
   list.push(
     { key: 'left', label: 'Previous', run: () => move(-1), push: true, nav: true },
     { key: 'right', label: 'Next', run: () => move(1), nav: true },
@@ -459,7 +485,8 @@ function renderList() {
     ol.append(el('li', null, button));
   }
   const open = v.list.filter((x) => x.state === 'open').length;
-  $('list').replaceChildren(el('h2', null, el('span', null, 'Flagged notes'), el('span', null, open + ' / ' + v.list.length)), ol);
+  const heading = v.all ? 'Every note' : 'Flagged notes';
+  $('list').replaceChildren(el('h2', null, el('span', null, heading), el('span', null, open + ' / ' + v.list.length)), ol);
   const current = $('list').querySelector('.current');
   if (current) current.scrollIntoView({ block: 'nearest' });
 }
@@ -518,22 +545,13 @@ function renderStage() {
   } else {
     side = flagsView(e);
   }
-  const card = cardView(state.mode === 'edit' ? previewCard() : e.card, e);
+  const card = cardView(state.mode === 'edit' ? previewCard() : e.card);
   stage.replaceChildren(card, side);
   if (state.shown !== e.index) {
     stage.scrollTop = 0;
     state.shown = e.index;
   }
   if (state.mode !== 'edit') stage.focus({ preventScroll: true });
-}
-
-function playButton(kind, e) {
-  if (!e.audio[kind] || state.mode === 'edit') return null;
-  const button = el('button', 'play', '▶');
-  button.type = 'button';
-  button.title = 'Play the ' + kind + ' (' + (kind === 'word' ? 'w' : 'p') + ')';
-  button.addEventListener('click', () => play(kind));
-  return button;
 }
 
 function sourceLink(url) {
@@ -544,11 +562,11 @@ function sourceLink(url) {
   return a;
 }
 
-function cardView(c, e) {
+function cardView(c) {
   const meta = el('div', 'meta', c.meta);
   if (c.source) meta.append(' · ', sourceLink(c.source));
   const card = el('section', 'card',
-    el('div', 'card-head', el('div', 'headword', arabic('word', c.head), playButton('word', e)), meta),
+    el('div', 'card-head', el('div', 'headword', arabic('word', c.head)), meta),
     el('div', 'meaning', c.english || '—'));
   if (c.hint) card.append(el('div', 'hint', c.hint));
   if (c.forms && c.forms.length) {
@@ -557,7 +575,7 @@ function cardView(c, e) {
     card.append(forms);
   }
   card.append(el('div', 'example',
-    el('div', 'sentence-row', arabic('sentence', c.example), playButton('sentence', e)),
+    el('div', 'sentence-row', arabic('sentence', c.example)),
     el('div', 'translation', c.example_en)));
   if (c.comment) card.append(el('div', 'comment', c.comment));
   return card;
@@ -604,7 +622,7 @@ function banner(tone, ...kids) {
 function flagsView(e) {
   const side = el('section', 'side');
   const titles = {
-    open: plural(e.flags.length, 'flag', 'flags') + ' to look at',
+    open: e.flags.length ? plural(e.flags.length, 'flag', 'flags') + ' to look at' : 'Nothing is flagged on this note',
     kept: '✓ You marked this card as right',
     edited: '✎ You edited this note',
     rewritten: '✦ You kept Claude Code\'s version',
@@ -612,6 +630,8 @@ function flagsView(e) {
   side.append(el('h2', 'side-title ' + e.state, titles[e.state]));
   if (e.state === 'edited' || e.state === 'rewritten') {
     side.append(el('p', 'side-note', '\'arabic-vocab check\' will check it again; the flags below are from before the change.'));
+  } else if (e.stale) {
+    side.append(el('p', 'side-note', '\'arabic-vocab check\' has not seen this note since it changed, so nothing below is up to date.'));
   }
   if (e.asking) {
     side.append(banner('claude', el('span', 'spinner'),
@@ -620,7 +640,77 @@ function flagsView(e) {
   }
   if (e.notice) side.append(banner(e.notice_tone === 'bad' ? 'bad' : 'info', el('span', 'grow', e.notice)));
   for (const f of e.flags) side.append(flagView(f));
+  if (state.view.audio) side.append(clipsView(e));
   return side;
+}
+
+function clipsView(e) {
+  const v = state.view;
+  const box = el('section', 'clips', el('h3', null, 'Audio'));
+  for (const c of e.clips) {
+    const row = el('div', 'clip', el('span', 'kind', c.kind));
+    row.append(
+      clipButton(c.ready ? '↻ Remake' : '↻ Make', 'Synthesize this clip again with Google Text-to-Speech', true, () => remake(c.kind)),
+      clipButton('✖ Remove', 'Delete this MP3', c.ready, () => removeClip(c.kind)));
+    if (!c.ready) row.append(el('span', 'note', 'not made yet'));
+    box.append(row);
+  }
+  if (v.voice) box.append(voiceRow(v.voice));
+  if (!state.voices) loadVoices();
+  return box;
+}
+
+function voiceLabel(v) {
+  const name = v.name.replace(/^ar-XA-/, '');
+  return v.gender ? name + ' · ' + v.gender.toLowerCase() : name;
+}
+
+function voiceRow(current) {
+  const known = state.voices || [];
+  const select = el('select');
+  const options = known.length ? known.slice() : [{ name: current }];
+  if (!options.some((o) => o.name === current)) options.unshift({ name: current });
+  for (const o of options) {
+    const option = el('option', null, voiceLabel(o));
+    option.value = o.name;
+    select.append(option);
+  }
+  select.value = current;
+  select.disabled = !known.length;
+  select.title = current;
+  select.addEventListener('change', () => act('voice', { voice: select.value }));
+  const row = el('div', 'clip', el('span', 'kind', 'voice'), select);
+  if (state.voicesNote) row.append(el('span', 'note', state.voicesNote));
+  return row;
+}
+
+async function loadVoices() {
+  state.voices = [];
+  let body;
+  try {
+    body = await request('api/voices');
+  } catch (err) {
+    if (!err.status) {
+      failed(err);
+      return;
+    }
+    state.voicesNote = err.message;
+    body = null;
+  }
+  if (body) {
+    state.voices = body.voices || [];
+    state.voicesNote = state.voices.length ? '' : 'no voices to choose from';
+  }
+  if (state.mode !== 'edit' && !state.finished) renderStage();
+}
+
+function clipButton(label, title, enabled, run) {
+  const button = el('button', 'small', label);
+  button.type = 'button';
+  button.title = title;
+  button.disabled = !enabled;
+  button.addEventListener('click', run);
+  return button;
 }
 
 function flagView(f) {
@@ -663,7 +753,7 @@ function changeLine(kind, sign, list, rtl) {
 
 function refreshPreview() {
   const card = $('stage').querySelector('.card');
-  if (card) card.replaceWith(cardView(previewCard(), state.view.entry));
+  if (card) card.replaceWith(cardView(previewCard()));
 }
 
 function bind(node, key, target) {
@@ -812,12 +902,16 @@ function tally(s) {
   return rows;
 }
 
+function notesWord(n) {
+  return state.view && state.view.all ? plural(n, 'note', 'notes') : plural(n, 'flagged note', 'flagged notes');
+}
+
 function doneView() {
   const v = state.view;
   const s = v.summary;
-  const all = s.open === 0;
+  const done = s.open === 0;
   const box = el('section', 'done',
-    el('h2', all ? 'all' : '', all ? '✓ All ' + s.total + ' flagged notes are done' : (s.total - s.open) + ' of ' + s.total + ' flagged notes are done'),
+    el('h2', done ? 'all' : '', done ? '✓ All ' + notesWord(s.total) + ' are done' : (s.total - s.open) + ' of ' + notesWord(s.total) + ' are done'),
     tally(s));
   if (v.next) box.append(el('p', 'next', v.next));
   return box;

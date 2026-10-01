@@ -64,9 +64,30 @@ has a key that also works with an Arabic keyboard layout:
 | `e` | Edit the note in a form, with a live preview of the card. |
 | `1`, `2` | On a missing ending: add the ending CATT or CAMeL reads to the card's word, keeping its other vowels. The button shows the result, and when both read the same ending there is only `1`. |
 | `c` | Ask Claude Code for a better version. It is told what was flagged, works in the background while you carry on, and shows its version as a diff for you to keep (`y`) or not (`n`). |
-| `p`, `w` | Listen to the sentence or the word. |
+| `w`, `f`, `s` | Listen to the word, the forms or the sentence. |
 | `←` `→` | Move between notes; skipped notes come round again at the end. |
 | `u` | Undo your last decision. |
+
+Under the flags, every clip of the note — word, forms and sentence — has a
+**Remake** button that synthesizes it again with Google Text-to-Speech, exactly
+as `arabic-vocab audio` does, and a **Remove** button that deletes its MP3. A
+remade clip replaces the file the deck uses and plays at once: when the voice
+was unlucky and garbled a word, another try usually gets it right, and a
+remade example sentence is transcribed back on the spot, so a `check::audio`
+flag clears itself as soon as the clip is right (`--verify=false` leaves the
+transcribing out). A removed clip is made again by the next `audio` run.
+
+The same panel has the **voice**, picked from Google's ar-XA voices. Choosing
+another one writes it to `deck.json`, exactly as `audio --voice` does, so every
+clip made from then on uses it, in the review and in later `audio` runs. Clips
+already on disk keep the voice they were made with until you remake them; a
+later `audio` run synthesizes the whole deck in the new voice, because the
+voice is part of every clip's name.
+
+`--all` lists every written note instead of only the flagged ones, so you can
+go through the whole deck, edit any note and remake any clip. Notes with
+nothing open are listed too, and `enter` ticks them off without touching
+`notes.jsonl`.
 
 Every decision is saved to `notes.jsonl` straight away. Click **Finish review**
 or press Ctrl+C in the terminal when you are done; the terminal prints what you
@@ -116,7 +137,7 @@ service account key in `.env/`.
 status    where the deck stands and what to run next
 add       add the next most common words, written by Claude Code
 check     cross-check every vowel with CAMeL and CATT
-review    go through flagged notes and decide what to do with each
+review    go through flagged notes, or every note with --all
 audio     synthesize the audio and check it with speech recognition
 build     write the Anki package
 voices    compare voices on words that differ only in their vowels

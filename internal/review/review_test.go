@@ -47,13 +47,13 @@ func newFixture() fixture {
 	return fixture{ns: ns, checks: checks, audio: audio, index: index}
 }
 
-func (f fixture) items(minor bool) ([]Item, int) {
-	return Items(f.ns, f.checks, f.audio, f.index, minor)
+func (f fixture) items(filter Filter) ([]Item, int) {
+	return Items(f.ns, f.checks, f.audio, f.index, filter)
 }
 
 func TestItemsCollectsUnreviewedFlags(t *testing.T) {
 	f := newFixture()
-	items, stale := f.items(true)
+	items, stale := f.items(Filter{Minor: true})
 	if stale != 1 {
 		t.Errorf("stale = %d, want 1", stale)
 	}
@@ -68,9 +68,30 @@ func TestItemsCollectsUnreviewedFlags(t *testing.T) {
 		t.Errorf("items = %+v", items)
 	}
 
-	items, _ = f.items(false)
+	items, _ = f.items(Filter{})
 	if len(items) != 2 || items[0].Len() != 1 || items[1].Index != 3 {
 		t.Fatalf("without minor flags: %+v", items)
+	}
+}
+
+func TestItemsWithAllKeepsEveryWrittenNote(t *testing.T) {
+	f := newFixture()
+	items, stale := f.items(Filter{Minor: true, All: true})
+	if stale != 1 {
+		t.Errorf("stale = %d, want 1", stale)
+	}
+	var got []string
+	for _, it := range items {
+		got = append(got, f.ns[it.Index].ID)
+	}
+	if !slices.Equal(got, []string{"مَوْقِع", "كَمْ", "قَدِيم", "بَاب", "عَشَرَة"}) {
+		t.Fatalf("items = %v", got)
+	}
+	if !items[2].Stale || items[2].Len() != 0 {
+		t.Errorf("a note the check has not seen since it changed: %+v", items[2])
+	}
+	if items[4].Len() != 0 || toneOf(items[4]) != "plain" {
+		t.Errorf("a note with nothing open: %+v", items[4])
 	}
 }
 
@@ -84,5 +105,8 @@ func TestFeedbackDescribesEveryFlag(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Errorf("feedback lacks %q:\n%s", want, got)
 		}
+	}
+	if got := Feedback(Item{}); !strings.Contains(got, "Nothing was flagged") || strings.Contains(got, "disagreed") {
+		t.Errorf("feedback for a note without flags:\n%s", got)
 	}
 }

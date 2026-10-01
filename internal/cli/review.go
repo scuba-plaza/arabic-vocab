@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"os"
 	"os/exec"
 	"runtime"
 	"slices"
@@ -21,6 +20,8 @@ import (
 func newReviewCommand(paths *deck.Paths) *cobra.Command {
 	var (
 		minor     bool
+		all       bool
+		verify    bool
 		claude    string
 		model     string
 		effort    string
@@ -28,7 +29,7 @@ func newReviewCommand(paths *deck.Paths) *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "review",
-		Short: "Go through flagged notes in your browser and decide what to do with each",
+		Short: "Go through flagged notes in your browser, or every note with --all",
 		Long: "Open a page in your browser, served only on this machine, with every note that\n" +
 			"'arabic-vocab check' or 'arabic-vocab audio' flagged and you have not dealt\n" +
 			"with yet. Each flag says in plain words what disagreed: the card's vowels\n" +
@@ -37,8 +38,17 @@ func newReviewCommand(paths *deck.Paths) *cobra.Command {
 			"  enter  say the card is right, so its flags stay out of the next build\n" +
 			"  e      edit the note\n" +
 			"  c      ask Claude Code for a better version, and keep it or not\n" +
-			"  p / w  listen to the sentence or the word\n" +
+			"  w/f/s  listen to the word, the forms or the sentence\n" +
 			"  u      undo your last decision\n\n" +
+			"With --all every written note is listed, flagged or not, so you can go\n" +
+			"through the whole deck and edit any of it.\n\n" +
+			"Each clip of a note also has buttons that remove its MP3 or synthesize it\n" +
+			"again with Google Text-to-Speech, as 'arabic-vocab audio' does. A voice that\n" +
+			"was unlucky once usually gets the word right on the next try. Remade example\n" +
+			"clips are transcribed back unless --verify=false.\n\n" +
+			"The voice itself can be picked from Google's ar-XA voices next to those\n" +
+			"buttons. It is saved in deck.json, so it speaks every clip made from then\n" +
+			"on, here and in later 'arabic-vocab audio' runs.\n\n" +
 			"Every decision is saved to notes.jsonl straight away. Click 'Finish review'\n" +
 			"on the page or press Ctrl+C here when you are done. Edited notes are checked\n" +
 			"again by the next check.",
@@ -60,10 +70,28 @@ func newReviewCommand(paths *deck.Paths) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			index := deck.AudioIndex(manifest)
-			items, stale := review.Items(ns, checks, audioChecks, index, minor)
+			settings, err := deck.LoadSettings(paths.Settings())
+			if err != nil {
+				return err
+			}
+			store := newClips(paths, settings.AudioVoice(), manifest, audioChecks, verify)
+			defer store.close()
+			items, stale := review.Items(ns, checks, audioChecks, store.index(), review.Filter{Minor: minor, All: all})
+			noun := func(n int) string {
+				if all {
+					return count(n, "note", "notes")
+				}
+				return count(n, "flagged note", "flagged notes")
+			}
 			if stale > 0 {
-				defer infof("%s a fresh 'arabic-vocab check' and were not shown\n", count(stale, "note needs", "notes need"))
+				if all {
+					defer infof("%s a fresh 'arabic-vocab check'; the flags shown for them are older than the note\n", count(stale, "note needs", "notes need"))
+				} else {
+					defer infof("%s a fresh 'arabic-vocab check' and were not shown\n", count(stale, "note needs", "notes need"))
+				}
+			}
+			if left := unwritten(ns); all && left > 0 {
+				defer infof("%s not written yet and were not shown; 'arabic-vocab add' writes them\n", count(left, "note is", "notes are"))
 			}
 			if len(items) == 0 {
 				infof("nothing to review\n")
@@ -71,14 +99,20 @@ func newReviewCommand(paths *deck.Paths) *cobra.Command {
 			}
 			opts := review.Options{
 				Save:     func(ns []notes.Note) error { return notes.WriteJSONL(paths.Notes(), ns) },
-				Clip:     func(n notes.Note, field string) string { return clip(paths, index, n, field) },
+				Clip:     store.path,
+				Remake:   store.remake,
+				Remove:   store.remove,
+				Voice:    settings.Voice,
+				Voices:   store.voiceOptions,
+				SetVoice: store.setVoice,
+				All:      all,
 				FontPath: paths.Asset("ScheherazadeNew-Regular.ttf"),
 			}
 			if path, err := exec.LookPath(claude); err == nil {
 				opts.Rewrite = rewriter(paths, ns, curate.ClaudeCode{Path: path, Model: model, Effort: effort})
 			}
 			sum, err := review.Serve(cmd.Context(), ns, items, opts, func(url string) {
-				fmt.Fprintf(cmd.OutOrStdout(), "reviewing %s at %s\n", count(len(items), "flagged note", "flagged notes"), url)
+				fmt.Fprintf(cmd.OutOrStdout(), "reviewing %s at %s\n", noun(len(items)), url)
 				if !noBrowser {
 					if err := openBrowser(url); err != nil {
 						infof("could not open a browser (%v); open the address above yourself\n", err)
@@ -87,7 +121,7 @@ func newReviewCommand(paths *deck.Paths) *cobra.Command {
 				infof("click 'Finish review' on the page or press Ctrl+C here when you are done\n")
 			})
 			infof("%s: %d marked right, %d edited, %d rewritten by Claude Code, %d still open\n",
-				count(sum.Total, "flagged note", "flagged notes"), sum.Kept, sum.Edited, sum.Rewritten, sum.Open)
+				noun(sum.Total), sum.Kept, sum.Edited, sum.Rewritten, sum.Open)
 			if next := review.NextSteps(sum); next != "" {
 				infof("%s\n", next)
 			}
@@ -96,11 +130,24 @@ func newReviewCommand(paths *deck.Paths) *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.BoolVar(&minor, "minor", true, "include notes whose only flags are minor disagreements")
+	f.BoolVar(&all, "all", false, "list every written note, not only the flagged ones, to review and edit")
+	f.BoolVar(&verify, "verify", true, "transcribe remade example clips back and check them")
 	f.StringVar(&claude, "claude", "claude", "Claude Code executable used for new versions")
 	f.StringVar(&model, "model", "", "model for Claude Code to use (default: Claude Code's own default)")
 	f.StringVar(&effort, "effort", "", "effort level for Claude Code (default: Claude Code's own)")
 	f.BoolVar(&noBrowser, "no-browser", false, "only print the address instead of opening a browser")
+	googleFlags(cmd, true)
 	return cmd
+}
+
+func unwritten(ns []notes.Note) int {
+	n := 0
+	for i := range ns {
+		if !ns[i].Authored() {
+			n++
+		}
+	}
+	return n
 }
 
 func openBrowser(url string) error {
@@ -118,24 +165,6 @@ func openBrowser(url string) error {
 	}
 	go c.Wait()
 	return nil
-}
-
-func clip(paths *deck.Paths, index map[string]string, n notes.Note, field string) string {
-	for _, at := range deck.AudioTexts(n) {
-		if at.Field != field {
-			continue
-		}
-		file, ok := index[at.Text]
-		if !ok {
-			return ""
-		}
-		path := paths.MediaFile(file)
-		if _, err := os.Stat(path); err != nil {
-			return ""
-		}
-		return path
-	}
-	return ""
 }
 
 func rewriter(paths *deck.Paths, ns []notes.Note, model curate.Model) func(context.Context, notes.Note, string) (notes.Note, error) {

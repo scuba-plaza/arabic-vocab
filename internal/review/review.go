@@ -13,6 +13,7 @@ type Item struct {
 	Index  int
 	Issues []notes.Issue
 	Audio  []notes.AudioCheck
+	Stale  bool
 }
 
 func (it Item) Len() int {
@@ -28,7 +29,12 @@ func (it Item) Major() bool {
 	return len(it.Audio) > 0
 }
 
-func Items(ns []notes.Note, checks []notes.Check, audio []notes.AudioCheck, index map[string]string, minor bool) ([]Item, int) {
+type Filter struct {
+	Minor bool
+	All   bool
+}
+
+func Items(ns []notes.Note, checks []notes.Check, audio []notes.AudioCheck, index map[string]string, filter Filter) ([]Item, int) {
 	byID := map[string]notes.Check{}
 	for _, c := range checks {
 		byID[c.ID] = c
@@ -47,14 +53,15 @@ func Items(ns []notes.Note, checks []notes.Check, audio []notes.AudioCheck, inde
 		c, ok := byID[n.ID]
 		if deck.Current(n, c, ok) {
 			for _, is := range deck.OpenIssues(n, c) {
-				if minor || is.Severity == notes.Major {
+				if filter.Minor || is.Severity == notes.Major {
 					it.Issues = append(it.Issues, is)
 				}
 			}
 		} else {
+			it.Stale = true
 			stale++
 		}
-		if it.Len() > 0 {
+		if it.Len() > 0 || filter.All {
 			items = append(items, it)
 		}
 	}
@@ -63,7 +70,11 @@ func Items(ns []notes.Note, checks []notes.Check, audio []notes.AudioCheck, inde
 
 func Feedback(it Item) string {
 	var b strings.Builder
-	b.WriteString("An automatic check disagreed with this card:\n")
+	if it.Len() == 0 {
+		b.WriteString("Nothing was flagged on this card; it is being gone over anyway.\n")
+	} else {
+		b.WriteString("An automatic check disagreed with this card:\n")
+	}
 	for _, is := range it.Issues {
 		if is.Word != "" {
 			fmt.Fprintf(&b, "- %s in the %s: %s\n", is.Word, is.Field, is.Detail)
@@ -78,10 +89,22 @@ func Feedback(it Item) string {
 	return b.String()
 }
 
+type VoiceOption struct {
+	Name   string `json:"name"`
+	Tier   string `json:"tier,omitempty"`
+	Gender string `json:"gender,omitempty"`
+}
+
 type Options struct {
 	Save     func([]notes.Note) error
 	Rewrite  func(ctx context.Context, n notes.Note, feedback string) (notes.Note, error)
 	Clip     func(n notes.Note, field string) string
+	Remake   func(ctx context.Context, n notes.Note, field string) (*notes.AudioCheck, error)
+	Remove   func(n notes.Note, field string) error
+	Voice    string
+	Voices   func(ctx context.Context) ([]VoiceOption, error)
+	SetVoice func(name string) error
+	All      bool
 	FontPath string
 }
 

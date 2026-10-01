@@ -86,6 +86,14 @@ func (s *session) handler(token, host string, finish func()) http.Handler {
 	mux.HandleFunc("GET "+base+"api/state", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, s.view(index(r)))
 	})
+	mux.HandleFunc("GET "+base+"api/voices", func(w http.ResponseWriter, r *http.Request) {
+		voices, err := s.voices(r.Context())
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, result{Message: "the voices could not be listed: " + err.Error(), Tone: "bad", Show: index(r)})
+			return
+		}
+		writeJSON(w, http.StatusOK, voices)
+	})
 	mux.HandleFunc("POST "+base+"api/{action}", func(w http.ResponseWriter, r *http.Request) {
 		s.act(w, r, finish)
 	})
@@ -122,7 +130,7 @@ func index(r *http.Request) int {
 }
 
 func (s *session) audio(w http.ResponseWriter, r *http.Request) {
-	field := map[string]string{"sentence": "ExampleAudio", "word": "WordAudio"}[r.URL.Query().Get("clip")]
+	field := clipField(r.URL.Query().Get("clip"))
 	path := ""
 	s.mu.Lock()
 	if e, err := s.entry(index(r)); err == nil && field != "" && s.opts.Clip != nil {
@@ -160,6 +168,24 @@ func (s *session) act(w http.ResponseWriter, r *http.Request, finish func()) {
 		} else {
 			err = userErrorf("the request could not be read: %v", err)
 		}
+	case "remake", "remove":
+		var body clipRequest
+		if body, err = decode[clipRequest](http.MaxBytesReader(w, r.Body, 1<<10)); err != nil {
+			err = userErrorf("the request could not be read: %v", err)
+		} else if field := clipField(body.Clip); field == "" {
+			err = userErrorf("there is no %q clip on a note", body.Clip)
+		} else if r.PathValue("action") == "remake" {
+			res, err = s.remake(i, field)
+		} else {
+			res, err = s.removeClip(i, field)
+		}
+	case "voice":
+		var body voiceRequest
+		if body, err = decode[voiceRequest](http.MaxBytesReader(w, r.Body, 1<<10)); err == nil {
+			res, err = s.setVoice(i, body.Voice)
+		} else {
+			err = userErrorf("the request could not be read: %v", err)
+		}
 	case "use":
 		res, err = s.use(i)
 	case "drop":
@@ -191,6 +217,14 @@ func (s *session) act(w http.ResponseWriter, r *http.Request, finish func()) {
 
 type endingRequest struct {
 	Source string `json:"source"`
+}
+
+type clipRequest struct {
+	Clip string `json:"clip"`
+}
+
+type voiceRequest struct {
+	Voice string `json:"voice"`
 }
 
 func decode[T any](r io.Reader) (T, error) {

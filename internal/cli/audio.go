@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -11,7 +10,6 @@ import (
 	"github.com/scuba-plaza/arabic-tts/audio"
 	"github.com/scuba-plaza/arabic-tts/config"
 	"github.com/scuba-plaza/arabic-tts/gcp"
-	"github.com/scuba-plaza/arabic-tts/stt"
 	"github.com/scuba-plaza/arabic-tts/tts"
 
 	"github.com/scuba-plaza/arabic-vocab/internal/deck"
@@ -75,41 +73,19 @@ func newAudioCommand(paths *deck.Paths) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
-			ttsClient, err := gcp.NewTextToSpeechClient(ctx, creds)
+			speak, ttsClient, err := newSpeaker(ctx, creds, settings.AudioVoice())
 			if err != nil {
 				return err
 			}
 			defer ttsClient.Close()
-			opts := tts.Options{Voice: settings.Voice, Language: config.DefaultLanguage, SpeakingRate: settings.Rate, Concurrency: 1}
-			if err := opts.Validate(); err != nil {
-				return usageError{err}
-			}
-			speak := func(ctx context.Context, text, path string) error {
-				o := opts
-				o.Output = path
-				_, err := tts.Synthesize(ctx, ttsClient, text, o)
-				return err
-			}
 			var listen deck.Listener
 			if verify {
-				speechClient, err := gcp.NewSpeechClient(ctx, creds, g.region)
+				heard, speechClient, err := newListener(ctx, creds)
 				if err != nil {
 					return err
 				}
 				defer speechClient.Close()
-				listen = func(ctx context.Context, path string) (string, error) {
-					tr, err := stt.TranscribeFile(ctx, speechClient, path, stt.Options{
-						Project: creds.ProjectID, Region: g.region, Language: config.DefaultLanguage,
-						Model: config.DefaultSTTModel, Concurrency: 1,
-					})
-					if errors.Is(err, stt.ErrNoSpeech) {
-						return "", nil
-					}
-					if err != nil {
-						return "", err
-					}
-					return tr.Text(), nil
-				}
+				listen = heard
 			}
 			manifest, err := notes.ReadJSONL[deck.ManifestEntry](paths.Manifest())
 			if err != nil {

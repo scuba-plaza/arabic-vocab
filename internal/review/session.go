@@ -32,6 +32,7 @@ type entry struct {
 	Item
 	state      state
 	asking     bool
+	working    bool
 	request    int
 	cancel     context.CancelFunc
 	since      time.Time
@@ -62,13 +63,14 @@ type session struct {
 	mu      sync.Mutex
 	ctx     context.Context
 	opts    Options
+	voice   string
 	ns      []notes.Note
 	entries []*entry
 	history []step
 }
 
 func newSession(ctx context.Context, ns []notes.Note, items []Item, opts Options) *session {
-	s := &session{ctx: ctx, opts: opts, ns: ns}
+	s := &session{ctx: ctx, opts: opts, voice: opts.Voice, ns: ns}
 	for _, it := range items {
 		s.entries = append(s.entries, &entry{Item: it})
 	}
@@ -95,10 +97,12 @@ func (s *session) nextOpen(from int) int {
 func (s *session) record(i int, st state, n notes.Note) error {
 	e := s.entries[i]
 	old := s.ns[e.Index]
-	s.ns[e.Index] = n
-	if err := s.opts.Save(s.ns); err != nil {
-		s.ns[e.Index] = old
-		return fmt.Errorf("saving notes.jsonl failed, so nothing changed: %w", err)
+	if !same(n, old) {
+		s.ns[e.Index] = n
+		if err := s.opts.Save(s.ns); err != nil {
+			s.ns[e.Index] = old
+			return fmt.Errorf("saving notes.jsonl failed, so nothing changed: %w", err)
+		}
 	}
 	s.history = append(s.history, step{entry: i, note: old, state: e.state})
 	e.state = st
@@ -149,7 +153,11 @@ func (s *session) keep(i int) (result, error) {
 	if err := s.record(i, kept, n); err != nil {
 		return result{}, err
 	}
-	return result{Message: "✓ " + n.Arabic + " is right as it is; its flags stay out of the next build", Tone: "good", Show: s.nextOpen(i)}, nil
+	message := "✓ " + n.Arabic + " is right as it is"
+	if e.Len() > 0 {
+		message += "; its flags stay out of the next build"
+	}
+	return result{Message: message, Tone: "good", Show: s.nextOpen(i)}, nil
 }
 
 func (s *session) save(i int, n notes.Note) (result, error) {
@@ -225,6 +233,123 @@ func (s *session) ending(i int, source string) (result, error) {
 		what = " endings: "
 	}
 	return result{Message: "✎ Added " + whose + what + strings.Join(fix.Words, " ") + "; run check again before building", Tone: "good", Show: s.nextOpen(i)}, nil
+}
+
+func (s *session) remake(i int, field string) (result, error) {
+	s.mu.Lock()
+	e, err := s.entry(i)
+	if err == nil && s.opts.Remake == nil {
+		err = userErrorf("this review cannot make audio; run 'arabic-vocab audio' instead")
+	}
+	if err != nil {
+		s.mu.Unlock()
+		return result{}, err
+	}
+	if e.working {
+		s.mu.Unlock()
+		return result{Show: i}, nil
+	}
+	e.working = true
+	n, remake := clone(s.ns[e.Index]), s.opts.Remake
+	s.mu.Unlock()
+	check, err := remake(s.ctx, n, field)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	e.working = false
+	if err != nil {
+		return result{}, err
+	}
+	made := "♪ Made the " + fieldName(field) + " audio of " + n.Arabic + " again"
+	if check == nil {
+		return result{Message: made + "; listen to it", Tone: "audio", Show: i}, nil
+	}
+	e.Audio = withCheck(e.Audio, *check)
+	if check.Match {
+		return result{Message: made + "; it transcribes back to the sentence now", Tone: "good", Show: i}, nil
+	}
+	return result{Message: made + "; " + heard(check.Transcript), Tone: "audio", Show: i}, nil
+}
+
+func heard(transcript string) string {
+	if transcript == "" {
+		return "speech recognition heard nothing"
+	}
+	return "speech recognition heard \"" + transcript + "\""
+}
+
+func withCheck(list []notes.AudioCheck, c notes.AudioCheck) []notes.AudioCheck {
+	out := make([]notes.AudioCheck, 0, len(list)+1)
+	seen := false
+	for _, a := range list {
+		if a.Field != c.Field {
+			out = append(out, a)
+			continue
+		}
+		seen = true
+		if !c.Match {
+			out = append(out, c)
+		}
+	}
+	if !seen && !c.Match {
+		out = append(out, c)
+	}
+	return out
+}
+
+func (s *session) setVoice(i int, name string) (result, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.opts.SetVoice == nil {
+		return result{}, userErrorf("this review cannot change the voice; use 'arabic-vocab audio --voice'")
+	}
+	if name == "" {
+		return result{}, userErrorf("no voice was given")
+	}
+	if name == s.voice {
+		return result{Show: i}, nil
+	}
+	if err := s.opts.SetVoice(name); err != nil {
+		return result{}, err
+	}
+	s.voice = name
+	return result{
+		Message: "♪ " + name + " speaks every clip made from now on, here and in 'arabic-vocab audio'; clips already made keep their voice until you remake them",
+		Tone:    "audio", Show: i,
+	}, nil
+}
+
+func (s *session) voices(ctx context.Context) (voicesView, error) {
+	s.mu.Lock()
+	list, current := s.opts.Voices, s.voice
+	s.mu.Unlock()
+	v := voicesView{Voice: current, Voices: []VoiceOption{}}
+	if list == nil {
+		return v, nil
+	}
+	voices, err := list(ctx)
+	if err != nil {
+		return v, err
+	}
+	v.Voices = voices
+	return v, nil
+}
+
+func (s *session) removeClip(i int, field string) (result, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	e, err := s.entry(i)
+	if err == nil && s.opts.Remove == nil {
+		err = userErrorf("this review cannot remove audio files")
+	}
+	if err != nil {
+		return result{}, err
+	}
+	n := s.ns[e.Index]
+	if err := s.opts.Remove(n, field); err != nil {
+		return result{}, err
+	}
+	e.Audio = slices.DeleteFunc(e.Audio, func(a notes.AudioCheck) bool { return a.Field == field })
+	return result{Message: "♪ Removed the " + fieldName(field) + " audio of " + n.Arabic + "; 'Remake' or 'arabic-vocab audio' makes it again", Show: i}, nil
 }
 
 func (s *session) ask(i int) (result, error) {

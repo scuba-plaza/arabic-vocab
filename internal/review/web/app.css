@@ -287,6 +287,10 @@ button {
   --tone: var(--accent);
 }
 
+.tone-plain {
+  --tone: var(--faint);
+}
+
 .spinner {
   display: inline-block;
   width: 12px;
@@ -447,25 +451,6 @@ button {
 
 .flag-minor {
   background: color-mix(in srgb, var(--warn) 22%, transparent);
-}
-
-.play {
-  flex: none;
-  display: inline-grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  padding: 0 0 0 2px;
-  border-radius: 50%;
-  border: 1px solid var(--line);
-  background: var(--panel-2);
-  color: var(--audio);
-  font-size: 0.8rem;
-  cursor: pointer;
-}
-
-.play:hover {
-  border-color: var(--audio);
 }
 
 .side {
@@ -763,6 +748,62 @@ select:focus {
 
 .small:hover {
   border-color: var(--faint);
+}
+
+.small:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.small:disabled:hover {
+  border-color: var(--line);
+}
+
+.clips {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 18px 15px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.clips h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 620;
+  color: var(--strong);
+}
+
+.clip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clip .kind {
+  width: 68px;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.clip .small {
+  padding: 5px 10px;
+  font-size: 0.88rem;
+}
+
+.clip .note {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.clip select {
+  width: auto;
+  flex: 1;
+  min-width: 0;
+  padding: 5px 9px;
+  font-size: 0.88rem;
 }
 
 .done,

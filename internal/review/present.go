@@ -59,9 +59,33 @@ type changeView struct {
 	New   []span `json:"new"`
 }
 
-type audioView struct {
-	Sentence bool `json:"sentence"`
-	Word     bool `json:"word"`
+type clipView struct {
+	Kind  string `json:"kind"`
+	Ready bool   `json:"ready"`
+}
+
+var clipKinds = []struct{ Kind, Field string }{
+	{"word", "WordAudio"},
+	{"forms", "FormsAudio"},
+	{"sentence", "ExampleAudio"},
+}
+
+func clipField(kind string) string {
+	for _, c := range clipKinds {
+		if c.Kind == kind {
+			return c.Field
+		}
+	}
+	return ""
+}
+
+func clipKind(field string) string {
+	for _, c := range clipKinds {
+		if c.Field == field {
+			return c.Kind
+		}
+	}
+	return ""
 }
 
 type entryView struct {
@@ -77,7 +101,8 @@ type entryView struct {
 	Proposal   *notes.Note  `json:"proposal,omitempty"`
 	Changes    []changeView `json:"changes,omitempty"`
 	Fixes      []endingFix  `json:"fixes,omitempty"`
-	Audio      audioView    `json:"audio"`
+	Clips      []clipView   `json:"clips"`
+	Stale      bool         `json:"stale"`
 }
 
 type listView struct {
@@ -99,15 +124,27 @@ type stateView struct {
 	Next    string     `json:"next,omitempty"`
 	History int        `json:"history"`
 	Claude  bool       `json:"claude"`
+	Audio   bool       `json:"audio"`
+	Voice   string     `json:"voice,omitempty"`
+	All     bool       `json:"all"`
 	List    []listView `json:"list"`
 	Entry   *entryView `json:"entry,omitempty"`
+}
+
+type voicesView struct {
+	Voice  string        `json:"voice"`
+	Voices []VoiceOption `json:"voices"`
 }
 
 func (s *session) view(i int) stateView {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	sum := s.count()
-	v := stateView{Summary: sum, Next: NextSteps(sum), History: len(s.history), Claude: s.opts.Rewrite != nil, List: []listView{}}
+	v := stateView{
+		Summary: sum, Next: NextSteps(sum), History: len(s.history),
+		Claude: s.opts.Rewrite != nil, Audio: s.opts.Remake != nil || s.opts.Remove != nil,
+		Voice: s.voice, All: s.opts.All, List: []listView{},
+	}
 	for k, e := range s.entries {
 		n := s.ns[e.Index]
 		v.List = append(v.List, listView{
@@ -124,6 +161,9 @@ func (s *session) view(i int) stateView {
 }
 
 func toneOf(it Item) string {
+	if it.Len() == 0 {
+		return "plain"
+	}
 	for _, is := range it.Issues {
 		if is.Severity == notes.Major {
 			return "bad"
@@ -142,6 +182,7 @@ func (s *session) entryView(i int) entryView {
 		Index: i, State: e.state.String(), Asking: e.asking,
 		Notice: e.notice, NoticeTone: e.noticeTone,
 		Note: n, Card: cardOf(n, e), Flags: []flagView{}, Proposal: e.proposal,
+		Clips: s.clipsOf(n), Stale: e.Stale,
 	}
 	if e.asking {
 		v.Seconds = int(time.Since(e.since).Seconds())
@@ -159,10 +200,19 @@ func (s *session) entryView(i int) entryView {
 	if e.state == open {
 		v.Fixes = endingFixes(n, e.Issues)
 	}
-	if s.opts.Clip != nil {
-		v.Audio = audioView{Sentence: s.opts.Clip(n, "ExampleAudio") != "", Word: s.opts.Clip(n, "WordAudio") != ""}
-	}
 	return v
+}
+
+func (s *session) clipsOf(n notes.Note) []clipView {
+	out := []clipView{}
+	for _, at := range deck.AudioTexts(n) {
+		kind := clipKind(at.Field)
+		if kind == "" {
+			continue
+		}
+		out = append(out, clipView{Kind: kind, Ready: s.opts.Clip != nil && s.opts.Clip(n, at.Field) != ""})
+	}
+	return out
 }
 
 func fieldName(field string) string {

@@ -78,7 +78,7 @@ func readStatus(paths *deck.Paths) (deckStatus, error) {
 	}
 	s.written = len(written)
 	s.checked = len(checks) > 0
-	items, stale := review.Items(written, checks, audioChecks, deck.AudioIndex(manifest), true)
+	items, stale := review.Items(written, checks, audioChecks, deck.AudioIndex(manifest), review.Filter{Minor: true})
 	s.unchecked = stale
 	for _, it := range items {
 		if it.Major() {
