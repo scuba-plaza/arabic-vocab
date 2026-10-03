@@ -16,6 +16,7 @@ func note(id string, pos int, example string) notes.Note {
 type fixture struct {
 	ns     []notes.Note
 	checks []notes.Check
+	audio  []notes.Check
 }
 
 func newFixture() fixture {
@@ -45,7 +46,7 @@ func newFixture() fixture {
 }
 
 func (f fixture) items(filter Filter) ([]Item, int) {
-	return Items(f.ns, f.checks, filter)
+	return Items(f.ns, f.checks, f.audio, filter)
 }
 
 func TestItemsCollectsUnreviewedFlags(t *testing.T) {
@@ -104,5 +105,91 @@ func TestFeedbackDescribesEveryFlag(t *testing.T) {
 	}
 	if got := Feedback(Item{}); !strings.Contains(got, "Nothing was flagged") || strings.Contains(got, "disagreed") {
 		t.Errorf("feedback for a note without flags:\n%s", got)
+	}
+}
+
+func silent(field string) notes.Issue {
+	return deck.SilentIssue(field, 4)
+}
+
+func audioCheckFor(n notes.Note, issues ...notes.Issue) notes.Check {
+	return notes.Check{ID: n.ID, Version: deck.AudioCheckVersion, Digest: n.Digest(), Issues: issues}
+}
+
+func TestItemsIncludeClipsWithoutSoundAfterTheVowelFlags(t *testing.T) {
+	f := newFixture()
+	f.audio = []notes.Check{audioCheckFor(f.ns[4], silent("WordAudio")), audioCheckFor(f.ns[3], silent("ExampleAudio"))}
+	items, _ := f.items(Filter{})
+	var got []string
+	for _, it := range items {
+		got = append(got, f.ns[it.Index].ID)
+	}
+	if !slices.Equal(got, []string{"مَوْقِع", "بَاب", "عَشَرَة"}) {
+		t.Fatalf("items = %v: a silent clip flags a note even without minor flags", got)
+	}
+	if items[1].Len() != 2 || items[1].Issues[0].Kind != "diacritics" || items[1].Issues[1].Kind != deck.KindSilent {
+		t.Errorf("a note with both kinds of flag lists the vowels first: %+v", items[1].Issues)
+	}
+	if items[2].Len() != 1 || items[2].Issues[0].Field != "WordAudio" || !items[2].Major() || toneOf(items[2]) != "bad" {
+		t.Errorf("a note with only a silent clip: %+v", items[2])
+	}
+}
+
+func TestItemsIgnoreClipFlagsThatNoLongerApply(t *testing.T) {
+	f := newFixture()
+	e := f.ns[4]
+	stale := audioCheckFor(e, silent("WordAudio"))
+	stale.Digest = "an older text"
+	older := audioCheckFor(f.ns[1], silent("WordAudio"))
+	older.Version = deck.AudioCheckVersion + 1
+	f.audio = []notes.Check{stale, older, audioCheckFor(notes.Note{ID: "nobody"}, silent("WordAudio"))}
+	items, _ := f.items(Filter{Minor: true})
+	for _, it := range items {
+		for _, is := range it.Issues {
+			if is.Kind == deck.KindSilent {
+				t.Errorf("%s still shows %+v", f.ns[it.Index].ID, is)
+			}
+		}
+	}
+	if len(items) != 3 {
+		t.Errorf("items = %d", len(items))
+	}
+}
+
+func TestClipFlagsDoNotChangeWhichNotesAreStale(t *testing.T) {
+	f := newFixture()
+	f.audio = []notes.Check{audioCheckFor(f.ns[2], silent("WordAudio"))}
+	_, stale := f.items(Filter{Minor: true})
+	if stale != 1 {
+		t.Errorf("stale = %d, want the one note whose vowel check is out of date", stale)
+	}
+}
+
+func TestFeedbackLeavesClipFlagsOut(t *testing.T) {
+	it := Item{Issues: []notes.Issue{silent("ExampleAudio")}}
+	got := Feedback(it)
+	if !strings.Contains(got, "Nothing was flagged") || strings.Contains(got, "ExampleAudio") || strings.Contains(got, "silent") || strings.Contains(got, "disagreed") {
+		t.Errorf("feedback for a silent clip:\n%s", got)
+	}
+	mixed := Item{Issues: []notes.Issue{{Field: "example", Kind: "unchecked", Detail: "CATT's reading could not be aligned"}, silent("WordAudio")}}
+	got = Feedback(mixed)
+	if !strings.Contains(got, "disagreed with this card") || !strings.Contains(got, "- the example: CATT's reading") || strings.Contains(got, "WordAudio") {
+		t.Errorf("feedback with both:\n%s", got)
+	}
+}
+
+func TestItemsShowASilentFlagWhateverTheNoteHasReviewed(t *testing.T) {
+	f := newFixture()
+	f.ns[4].Reviewed = []string{"عَشْر", "WordAudio:silent"}
+	f.audio = []notes.Check{audioCheckFor(f.ns[4], silent("WordAudio"))}
+	items, _ := f.items(Filter{})
+	var got []notes.Issue
+	for _, it := range items {
+		if f.ns[it.Index].ID == "عَشَرَة" {
+			got = it.Issues
+		}
+	}
+	if len(got) != 1 || got[0].Kind != deck.KindSilent {
+		t.Errorf("a clip without sound cannot be reviewed away: %+v", got)
 	}
 }

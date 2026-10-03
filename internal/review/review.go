@@ -3,6 +3,7 @@ package review
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/scuba-plaza/arabic-vocab/internal/deck"
@@ -33,10 +34,14 @@ type Filter struct {
 	All   bool
 }
 
-func Items(ns []notes.Note, checks []notes.Check, filter Filter) ([]Item, int) {
+func Items(ns []notes.Note, checks, audio []notes.Check, filter Filter) ([]Item, int) {
 	byID := map[string]notes.Check{}
 	for _, c := range checks {
 		byID[c.ID] = c
+	}
+	audioByID := map[string]notes.Check{}
+	for _, c := range audio {
+		audioByID[c.ID] = c
 	}
 	var items []Item
 	stale := 0
@@ -56,6 +61,9 @@ func Items(ns []notes.Note, checks []notes.Check, filter Filter) ([]Item, int) {
 			it.Stale = true
 			stale++
 		}
+		if ac, ok := audioByID[n.ID]; ok {
+			it.Issues = append(it.Issues, deck.OpenAudioIssues(n, ac)...)
+		}
 		if it.Len() > 0 || filter.All {
 			items = append(items, it)
 		}
@@ -65,12 +73,13 @@ func Items(ns []notes.Note, checks []notes.Check, filter Filter) ([]Item, int) {
 
 func Feedback(it Item) string {
 	var b strings.Builder
-	if it.Len() == 0 {
+	issues := slices.DeleteFunc(slices.Clone(it.Issues), func(is notes.Issue) bool { return is.Kind == deck.KindSilent })
+	if len(issues) == 0 {
 		b.WriteString("Nothing was flagged on this card; it is being gone over anyway.\n")
 	} else {
 		b.WriteString("An automatic check disagreed with this card:\n")
 	}
-	for _, is := range it.Issues {
+	for _, is := range issues {
 		if is.Word != "" {
 			fmt.Fprintf(&b, "- %s in the %s: %s\n", is.Word, is.Field, is.Detail)
 		} else {
@@ -91,8 +100,9 @@ type Options struct {
 	Save     func([]notes.Note) error
 	Rewrite  func(ctx context.Context, n notes.Note, feedback string) (notes.Note, error)
 	Clip     func(n notes.Note, field string) string
-	Remake   func(ctx context.Context, n notes.Note, field string) error
+	Remake   func(ctx context.Context, n notes.Note, field string) (*notes.Issue, error)
 	Remove   func(n notes.Note, field string) error
+	Flags    func(ns []notes.Note) map[string][]notes.Issue
 	Voice    string
 	Voices   func(ctx context.Context) ([]VoiceOption, error)
 	SetVoice func(name string) error

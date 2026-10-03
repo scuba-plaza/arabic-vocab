@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/scuba-plaza/arabic-vocab/internal/deck"
 	"github.com/scuba-plaza/arabic-vocab/internal/notes"
 )
 
@@ -31,7 +32,7 @@ type harness struct {
 	mu        sync.Mutex
 	feedbacks []string
 	rewrite   func(notes.Note) (notes.Note, error)
-	remake    func(notes.Note, string) error
+	remake    func(notes.Note, string) (*notes.Issue, error)
 	removed   []string
 	removeErr error
 	voice     string
@@ -44,7 +45,14 @@ func newHarness(t *testing.T) *harness {
 }
 
 func newFilteredHarness(t *testing.T, filter Filter) *harness {
+	return newHarnessWith(t, filter, nil)
+}
+
+func newHarnessWith(t *testing.T, filter Filter, arrange func(*fixture)) *harness {
 	h := &harness{t: t, f: newFixture()}
+	if arrange != nil {
+		arrange(&h.f)
+	}
 	items, _ := h.f.items(filter)
 	dir := t.TempDir()
 	clip := filepath.Join(dir, "ar-bab.mp3")
@@ -71,9 +79,9 @@ func newFilteredHarness(t *testing.T, filter Filter) *harness {
 			}
 			return ""
 		},
-		Remake: func(_ context.Context, n notes.Note, field string) error {
+		Remake: func(_ context.Context, n notes.Note, field string) (*notes.Issue, error) {
 			if h.remake == nil {
-				return nil
+				return nil, nil
 			}
 			return h.remake(n, field)
 		},
@@ -377,9 +385,9 @@ func TestClipsAreRemadeAndRemoved(t *testing.T) {
 		t.Fatal("the page should offer the audio buttons")
 	}
 	var remade []string
-	h.remake = func(n notes.Note, field string) error {
+	h.remake = func(n notes.Note, field string) (*notes.Issue, error) {
 		remade = append(remade, n.ID+" "+field)
-		return nil
+		return nil, nil
 	}
 	code, res := h.post("remake", 2, clipRequest{Clip: "sentence"})
 	if code != http.StatusOK || res.Show != 2 || !strings.Contains(res.Message, "Made the sentence audio of بَاب again; listen to it") {
@@ -391,7 +399,7 @@ func TestClipsAreRemadeAndRemoved(t *testing.T) {
 	if code, res = h.post("remake", 0, clipRequest{Clip: "word"}); code != http.StatusOK || !strings.Contains(res.Message, "word audio") {
 		t.Errorf("remaking a word clip: %d %+v", code, res)
 	}
-	h.remake = func(notes.Note, string) error { return errors.New("quota exceeded") }
+	h.remake = func(notes.Note, string) (*notes.Issue, error) { return nil, errors.New("quota exceeded") }
 	if code, res = h.post("remake", 2, clipRequest{Clip: "sentence"}); code != http.StatusInternalServerError || !strings.Contains(res.Message, "quota exceeded") {
 		t.Errorf("a failing remake: %d %+v", code, res)
 	}
@@ -512,5 +520,216 @@ func TestServeRunsUntilFinished(t *testing.T) {
 	out := <-done
 	if out.err != nil || out.sum.Kept != 1 || out.sum.Open != 2 {
 		t.Fatalf("Serve returned %+v, %v", out.sum, out.err)
+	}
+}
+
+func withSilentClips(f *fixture) {
+	f.audio = []notes.Check{audioCheckFor(f.ns[4], silent("ExampleAudio"), silent("WordAudio"))}
+}
+
+func flagTitles(v entryView) []string {
+	var out []string
+	for _, f := range v.Flags {
+		out = append(out, f.Title+" / "+f.Where)
+	}
+	return out
+}
+
+func TestClipWithoutSoundIsFlaggedLikeAnyOtherProblem(t *testing.T) {
+	h := newHarnessWith(t, Filter{Minor: true}, withSilentClips)
+	v := h.state(3)
+	if len(v.List) != 4 || v.List[3].Arabic != "عَشَرَة" || v.List[3].Tone != "bad" || v.List[3].Flags != 2 {
+		t.Fatalf("list %+v", v.List)
+	}
+	got := flagTitles(*v.Entry)
+	slices.Sort(got)
+	if want := []string{"The clip has no sound / sentence · major", "The clip has no sound / word · major"}; !slices.Equal(got, want) {
+		t.Fatalf("flags %v, want %v", got, want)
+	}
+	var sentence flagView
+	for _, f := range v.Entry.Flags {
+		if f.Where == "sentence · major" {
+			sentence = f
+		}
+	}
+	if sentence.Tone != "bad" || sentence.Symbol != "✗" || !strings.Contains(sentence.Explain, "came back silent in all 4 attempts") || !strings.Contains(sentence.Explain, "Remake") {
+		t.Errorf("flag %+v", sentence)
+	}
+	if len(sentence.Rows) != 0 {
+		t.Errorf("there is nothing to compare for a clip: %+v", sentence.Rows)
+	}
+}
+
+func TestRemakingAClipClearsOrRenewsItsFlag(t *testing.T) {
+	h := newHarnessWith(t, Filter{Minor: true}, withSilentClips)
+	h.remake = func(n notes.Note, field string) (*notes.Issue, error) { return nil, nil }
+	code, res := h.post("remake", 3, clipRequest{Clip: "sentence"})
+	if code != http.StatusOK || res.Tone != "audio" || !strings.Contains(res.Message, "listen to it") {
+		t.Fatalf("a good remake: %d %+v", code, res)
+	}
+	v := h.state(3)
+	if len(v.Entry.Flags) != 1 || v.List[3].Flags != 1 || !strings.Contains(v.Entry.Flags[0].Where, "word") {
+		t.Fatalf("only the sentence flag should have cleared: %v", flagTitles(*v.Entry))
+	}
+
+	again := deck.SilentIssue("ExampleAudio", 4)
+	h.remake = func(n notes.Note, field string) (*notes.Issue, error) { return &again, nil }
+	code, res = h.post("remake", 3, clipRequest{Clip: "sentence"})
+	if code != http.StatusOK || res.Tone != "bad" || !strings.Contains(res.Message, "came back without any sound") {
+		t.Fatalf("a remake that is still silent: %d %+v", code, res)
+	}
+	if v = h.state(3); len(v.Entry.Flags) != 2 || v.List[3].Flags != 2 {
+		t.Errorf("the flag should be back, once: %v", flagTitles(*v.Entry))
+	}
+	if code, _ = h.post("remake", 3, clipRequest{Clip: "sentence"}); code != http.StatusOK {
+		t.Fatal(code)
+	}
+	if v = h.state(3); len(v.Entry.Flags) != 2 {
+		t.Errorf("a repeated failure must not pile up flags: %v", flagTitles(*v.Entry))
+	}
+}
+
+func TestARemakeThatFailsOutrightLeavesTheFlagsAlone(t *testing.T) {
+	h := newHarnessWith(t, Filter{Minor: true}, withSilentClips)
+	h.remake = func(n notes.Note, field string) (*notes.Issue, error) { return nil, errors.New("quota exceeded") }
+	if code, res := h.post("remake", 3, clipRequest{Clip: "sentence"}); code != http.StatusInternalServerError || !strings.Contains(res.Message, "quota exceeded") {
+		t.Fatalf("%d %+v", code, res)
+	}
+	if v := h.state(3); len(v.Entry.Flags) != 2 {
+		t.Errorf("flags = %v", flagTitles(*v.Entry))
+	}
+}
+
+func TestRemovingAClipClearsItsFlag(t *testing.T) {
+	h := newHarnessWith(t, Filter{Minor: true}, withSilentClips)
+	if code, res := h.post("remove", 3, clipRequest{Clip: "word"}); code != http.StatusOK {
+		t.Fatalf("%d %+v", code, res)
+	}
+	v := h.state(3)
+	if len(v.Entry.Flags) != 1 || !strings.Contains(v.Entry.Flags[0].Where, "sentence") {
+		t.Errorf("flags = %v", flagTitles(*v.Entry))
+	}
+}
+
+func TestKeepingANoteNeverClosesItsClipFlags(t *testing.T) {
+	h := newHarnessWith(t, Filter{Minor: true}, func(f *fixture) {
+		f.audio = []notes.Check{audioCheckFor(f.ns[3], silent("ExampleAudio"), silent("WordAudio"))}
+	})
+	code, res := h.post("keep", 2, nil)
+	if code != http.StatusOK || !strings.Contains(res.Message, "its other flags stay out of the next build, but a clip without sound stays flagged until it is made again") {
+		t.Fatalf("keep: %d %+v", code, res)
+	}
+	if got := h.f.ns[3].Reviewed; !slices.Equal(got, []string{"الْبَابَ"}) {
+		t.Errorf("a silent clip must not be written into the note's reviewed flags, got %q", got)
+	}
+	if _, res = h.post("undo", -1, nil); res.Show != 2 || h.state(2).Entry.State != "open" || len(h.f.ns[3].Reviewed) != 0 {
+		t.Errorf("undo: %+v, reviewed %q", res, h.f.ns[3].Reviewed)
+	}
+}
+
+func withOnlyASilentClip(f *fixture) {
+	f.audio = []notes.Check{audioCheckFor(f.ns[2], silent("WordAudio"))}
+}
+
+func TestKeepingANoteWhoseOnlyFlagIsASilentClipStoresNothing(t *testing.T) {
+	h := newHarnessWith(t, Filter{Minor: true}, withOnlyASilentClip)
+	v := h.state(2)
+	if v.Entry.Note.Arabic != "قَدِيم" || len(v.Entry.Flags) != 1 {
+		t.Fatalf("entry %+v", v.Entry)
+	}
+	code, res := h.post("keep", 2, nil)
+	if code != http.StatusOK || !strings.Contains(res.Message, "a clip without sound stays flagged until it is made again, so Remake it or edit the text") || strings.Contains(res.Message, "stay out of the next build") {
+		t.Fatalf("keep: %d %+v", code, res)
+	}
+	if got := h.f.ns[2].Reviewed; len(got) != 0 {
+		t.Errorf("reviewed = %q", got)
+	}
+	if h.saves != 0 {
+		t.Errorf("there is nothing to store about this note, got %d saves", h.saves)
+	}
+	if h.state(2).Entry.State != "kept" {
+		t.Errorf("the note leaves this session's queue: %s", h.state(2).Entry.State)
+	}
+	items, _ := h.f.items(Filter{Minor: true})
+	found := false
+	for _, it := range items {
+		if h.f.ns[it.Index].ID == "قَدِيم" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("the next review must show the clip again")
+	}
+}
+
+func TestSilentFlagsStayInTheQueueEvenWhenTheNoteSaysItWasReviewed(t *testing.T) {
+	h := newHarnessWith(t, Filter{Minor: true}, func(f *fixture) {
+		f.ns[2].Reviewed = []string{"WordAudio:silent"}
+		f.audio = []notes.Check{audioCheckFor(f.ns[2], silent("WordAudio"))}
+	})
+	v := h.state(2)
+	if v.Entry.Note.Arabic != "قَدِيم" || len(v.Entry.Flags) != 1 || !strings.Contains(v.Entry.Flags[0].Title, "no sound") {
+		t.Errorf("entry %+v", v.Entry)
+	}
+}
+
+func TestRemakingASharedClipRefreshesEveryNoteThatPlaysIt(t *testing.T) {
+	h := newHarnessWith(t, Filter{Minor: true}, func(f *fixture) {
+		f.audio = []notes.Check{audioCheckFor(f.ns[4], silent("ExampleAudio")), audioCheckFor(f.ns[3], silent("ExampleAudio"))}
+	})
+	other := h.state(2).Entry
+	if other.Note.Arabic != "بَاب" || len(other.Flags) != 2 {
+		t.Fatalf("the other note should have its vowel flag and the clip: %+v", other)
+	}
+	h.remake = func(n notes.Note, field string) (*notes.Issue, error) { return nil, nil }
+	h.s.opts.Flags = func(ns []notes.Note) map[string][]notes.Issue { return map[string][]notes.Issue{} }
+	if code, res := h.post("remake", 3, clipRequest{Clip: "sentence"}); code != http.StatusOK {
+		t.Fatalf("%d %+v", code, res)
+	}
+	if v := h.state(2); len(v.Entry.Flags) != 1 || strings.Contains(v.Entry.Flags[0].Title, "no sound") || v.List[2].Flags != 1 {
+		t.Errorf("the clip was made again for every note that plays it: %v", flagTitles(*v.Entry))
+	}
+	if v := h.state(3); len(v.Entry.Flags) != 0 {
+		t.Errorf("flags = %v", flagTitles(*v.Entry))
+	}
+
+	again := deck.SilentIssue("ExampleAudio", 4)
+	h.remake = func(n notes.Note, field string) (*notes.Issue, error) { return &again, nil }
+	h.s.opts.Flags = func(ns []notes.Note) map[string][]notes.Issue {
+		return map[string][]notes.Issue{"بَاب": {deck.SilentIssue("ExampleAudio", 4)}, "عَشَرَة": {again}}
+	}
+	if code, _ := h.post("remake", 3, clipRequest{Clip: "sentence"}); code != http.StatusOK {
+		t.Fatal(code)
+	}
+	if v := h.state(2); len(v.Entry.Flags) != 2 {
+		t.Errorf("a clip that stays silent flags every note that plays it: %v", flagTitles(*v.Entry))
+	}
+	if v := h.state(3); len(v.Entry.Flags) != 1 {
+		t.Errorf("flags = %v", flagTitles(*v.Entry))
+	}
+}
+
+func TestRemovingASharedClipRefreshesEveryNoteThatPlaysIt(t *testing.T) {
+	h := newHarnessWith(t, Filter{Minor: true}, func(f *fixture) {
+		f.audio = []notes.Check{audioCheckFor(f.ns[4], silent("ExampleAudio")), audioCheckFor(f.ns[3], silent("ExampleAudio"))}
+	})
+	h.s.opts.Flags = func(ns []notes.Note) map[string][]notes.Issue { return map[string][]notes.Issue{} }
+	if code, res := h.post("remove", 3, clipRequest{Clip: "sentence"}); code != http.StatusOK {
+		t.Fatalf("%d %+v", code, res)
+	}
+	if v := h.state(2); len(v.Entry.Flags) != 1 || strings.Contains(v.Entry.Flags[0].Title, "no sound") {
+		t.Errorf("flags = %v", flagTitles(*v.Entry))
+	}
+}
+
+func TestClaudeIsNotAskedToFixAClipFlag(t *testing.T) {
+	h := newHarnessWith(t, Filter{Minor: true}, withSilentClips)
+	h.rewrite = func(n notes.Note) (notes.Note, error) { return n, nil }
+	if code, _ := h.post("ask", 3, nil); code != http.StatusOK {
+		t.Fatal(code)
+	}
+	h.settle(3)
+	if len(h.feedbacks) != 1 || strings.Contains(h.feedbacks[0], "Audio") || !strings.Contains(h.feedbacks[0], "Nothing was flagged") {
+		t.Errorf("feedback = %q", h.feedbacks)
 	}
 }

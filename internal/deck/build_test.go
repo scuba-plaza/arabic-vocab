@@ -1,6 +1,8 @@
 package deck
 
 import (
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -17,7 +19,7 @@ func note(id string, pos int) notes.Note {
 
 func tagsOf(t *testing.T, ns []notes.Note, checks []notes.Check) map[string][]string {
 	t.Helper()
-	pkg, _, err := BuildPackage(ns, checks, BuildOptions{ProductionLimit: 1, MediaDir: t.TempDir()})
+	pkg, _, err := BuildPackage(ns, checks, nil, BuildOptions{ProductionLimit: 1, MediaDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +54,7 @@ func TestBuildAddsProductionCardsUpToTheLimit(t *testing.T) {
 	no := false
 	first, second, third := note("كِتَاب", 1), note("قَلَم", 2), note("بَيْت", 1)
 	third.ID, third.Position, third.Production = "بَاب", 3, &no
-	pkg, summary, err := BuildPackage([]notes.Note{first, second, third}, nil, BuildOptions{ProductionLimit: 1, ProductionDelay: 5, MediaDir: t.TempDir()})
+	pkg, summary, err := BuildPackage([]notes.Note{first, second, third}, nil, nil, BuildOptions{ProductionLimit: 1, ProductionDelay: 5, MediaDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +73,7 @@ func TestBuildTagsWordsOutsideTheRankingAsUnranked(t *testing.T) {
 	ranked, extra := note("كِتَاب", 1), note("قَلَم", 2)
 	ranked.Position, extra.Position = 500, UnrankedBase+1
 	extra.ID = "قَلَم"
-	pkg, _, err := BuildPackage([]notes.Note{ranked, extra}, nil, BuildOptions{MediaDir: t.TempDir()})
+	pkg, _, err := BuildPackage([]notes.Note{ranked, extra}, nil, nil, BuildOptions{MediaDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,5 +162,87 @@ func TestCardsNeverUseABoldWeight(t *testing.T) {
 	css := NoteType().CSS
 	if !strings.Contains(css, ".card b, .card strong {\n  font-weight: normal;") || strings.Contains(css, "bold") {
 		t.Error("the bundled font has no bold face, so <b> must not change the weight")
+	}
+}
+
+func audioCheck(n notes.Note, issues ...notes.Issue) notes.Check {
+	return notes.Check{ID: n.ID, Version: AudioCheckVersion, Digest: n.Digest(), Issues: issues}
+}
+
+func packageWith(t *testing.T, ns []notes.Note, checks, audio []notes.Check) (map[string]struct {
+	Tags  []string
+	Check string
+}, BuildSummary) {
+	t.Helper()
+	pkg, summary, err := BuildPackage(ns, checks, audio, BuildOptions{MediaDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := map[string]struct {
+		Tags  []string
+		Check string
+	}{}
+	for i, n := range pkg.Notes {
+		out[ns[i].ID] = struct {
+			Tags  []string
+			Check string
+		}{n.Tags, n.Fields[fieldIndex("Check")]}
+	}
+	return out, summary
+}
+
+func TestBuildTagsClipsThatHaveNoSound(t *testing.T) {
+	a, b, c, d, e := note("كِتَاب", 1), note("قَلَم", 2), note("بَيْت", 3), note("بَاب", 4), note("شَجَرَة", 5)
+	b.Reviewed = []string{"ExampleAudio:silent"}
+	audio := []notes.Check{
+		audioCheck(a, SilentIssue("ExampleAudio", 4)),
+		audioCheck(b, SilentIssue("ExampleAudio", 4)),
+		{ID: c.ID, Version: AudioCheckVersion, Digest: "old text", Issues: []notes.Issue{SilentIssue("ExampleAudio", 4)}},
+		audioCheck(e, SilentIssue("WordAudio", 4), SilentIssue("ExampleAudio", 4)),
+	}
+	checks := []notes.Check{{ID: d.ID, Version: CheckVersion, Digest: d.Digest(), Issues: []notes.Issue{{Kind: "diacritics", Severity: notes.Major, Word: "كِتَابًا", Detail: "x"}}}}
+	audio = append(audio, audioCheck(d, SilentIssue("WordAudio", 4)))
+
+	got, summary := packageWith(t, []notes.Note{a, b, c, d, e}, checks, audio)
+	if !slices.Contains(got[a.ID].Tags, "check::audio") || !strings.Contains(got[a.ID].Check, "The sentence audio has no sound") {
+		t.Errorf("a: %+v", got[a.ID])
+	}
+	if !slices.Contains(got[b.ID].Tags, "check::audio") || !strings.Contains(got[b.ID].Check, "no sound") {
+		t.Errorf("a silent clip cannot be reviewed away, only made again: %+v", got[b.ID])
+	}
+	if slices.Contains(got[c.ID].Tags, "check::audio") {
+		t.Errorf("a flag about text that changed should not count: %+v", got[c.ID])
+	}
+	if !slices.Contains(got[d.ID].Tags, "check::audio") || !slices.Contains(got[d.ID].Tags, "check::diacritics") || !strings.Contains(got[d.ID].Check, "The word audio has no sound") || !strings.Contains(got[d.ID].Check, "x") {
+		t.Errorf("a note with both kinds of flag shows both: %+v", got[d.ID])
+	}
+	if n := strings.Count(strings.Join(got[e.ID].Tags, " "), "check::audio"); n != 1 {
+		t.Errorf("two silent clips still make one tag, got %d: %v", n, got[e.ID].Tags)
+	}
+	if strings.Count(got[e.ID].Check, "no sound") != 2 {
+		t.Errorf("each silent clip gets its own line: %q", got[e.ID].Check)
+	}
+	if summary.Tagged["check::audio"] != 4 {
+		t.Errorf("tagged = %v", summary.Tagged)
+	}
+}
+
+func TestBuildLeavesOutTheSoundOfAClipThatIsMissing(t *testing.T) {
+	a := note("كِتَاب", 1)
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "ar-word.mp3"), []byte("x"), 0o644)
+	pkg, summary, err := BuildPackage([]notes.Note{a}, nil, []notes.Check{audioCheck(a, SilentIssue("ExampleAudio", 4))}, BuildOptions{
+		MediaDir: dir,
+		Audio:    map[string]string{AudioTexts(a)[0].Text: "ar-word.mp3"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fields := pkg.Notes[0].Fields
+	if !strings.HasPrefix(fields[fieldIndex("WordAudio")], "[sound:") || fields[fieldIndex("ExampleAudio")] != "" {
+		t.Errorf("word %q, example %q", fields[fieldIndex("WordAudio")], fields[fieldIndex("ExampleAudio")])
+	}
+	if summary.AudioFiles != 1 || summary.MissingAudio != 1 {
+		t.Errorf("summary = %+v", summary)
 	}
 }

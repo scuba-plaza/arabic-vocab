@@ -30,10 +30,12 @@ func newReviewCommand(paths *deck.Paths) *cobra.Command {
 		Use:   "review",
 		Short: "Go through flagged notes in your browser, or every note with --all",
 		Long: "Open a page in your browser, served only on this machine, with every note that\n" +
-			"'arabic-vocab check' flagged and you have not dealt with yet. Each flag says\n" +
-			"in plain words what disagreed: the card's vowels next to CATT's and CAMeL's\n" +
-			"readings with the differing letters highlighted. For each note you can\n" +
+			"'arabic-vocab check' or 'arabic-vocab audio' flagged and you have not dealt\n" +
+			"with yet. Each flag says in plain words what disagreed: the card's vowels\n" +
+			"next to CATT's and CAMeL's readings with the differing letters highlighted,\n" +
+			"or which clip came back without any sound. For each note you can\n" +
 			"  enter  say the card is right, so its flags stay out of the next build\n" +
+			"         (a clip without sound stays flagged: remake it or edit the text)\n" +
 			"  e      edit the note\n" +
 			"  c      ask Claude Code for a better version, and keep it or not\n" +
 			"  w/f/s  listen to the word, the forms or the sentence\n" +
@@ -42,7 +44,10 @@ func newReviewCommand(paths *deck.Paths) *cobra.Command {
 			"through the whole deck and edit any of it.\n\n" +
 			"Each clip of a note also has buttons that remove its MP3 or synthesize it\n" +
 			"again with Google Text-to-Speech, as 'arabic-vocab audio' does. A voice that\n" +
-			"was unlucky once usually gets the word right on the next try.\n\n" +
+			"was unlucky once usually gets the word right on the next try; a clip that\n" +
+			"comes back silent is asked for again, as 'arabic-vocab audio' does, and its\n" +
+			"flag clears when the new clip has sound, for every note that plays it. While\n" +
+			"'arabic-vocab audio' is running these buttons wait a few seconds and then say so.\n\n" +
 			"The voice itself can be picked from Google's ar-XA voices next to those\n" +
 			"buttons. It is saved in deck.json, so it speaks every clip made from then\n" +
 			"on, here and in later 'arabic-vocab audio' runs.\n\n" +
@@ -59,6 +64,10 @@ func newReviewCommand(paths *deck.Paths) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			audioChecks, err := notes.ReadJSONL[notes.Check](paths.AudioQA())
+			if err != nil {
+				return err
+			}
 			manifest, err := notes.ReadJSONL[deck.ManifestEntry](paths.Manifest())
 			if err != nil {
 				return err
@@ -69,7 +78,7 @@ func newReviewCommand(paths *deck.Paths) *cobra.Command {
 			}
 			store := newClips(paths, settings.AudioVoice(), manifest)
 			defer store.close()
-			items, stale := review.Items(ns, checks, review.Filter{Minor: minor, All: all})
+			items, stale := review.Items(ns, checks, audioChecks, review.Filter{Minor: minor, All: all})
 			noun := func(n int) string {
 				if all {
 					return count(n, "note", "notes")
@@ -77,11 +86,7 @@ func newReviewCommand(paths *deck.Paths) *cobra.Command {
 				return count(n, "flagged note", "flagged notes")
 			}
 			if stale > 0 {
-				if all {
-					defer infof("%s a fresh 'arabic-vocab check'; the flags shown for them are older than the note\n", count(stale, "note needs", "notes need"))
-				} else {
-					defer infof("%s a fresh 'arabic-vocab check' and were not shown\n", count(stale, "note needs", "notes need"))
-				}
+				defer infof("%s\n", staleNotice(stale, all))
 			}
 			if left := unwritten(ns); all && left > 0 {
 				defer infof("%s not written yet and were not shown; 'arabic-vocab add' writes them\n", count(left, "note is", "notes are"))
@@ -95,6 +100,7 @@ func newReviewCommand(paths *deck.Paths) *cobra.Command {
 				Clip:     store.path,
 				Remake:   store.remake,
 				Remove:   store.remove,
+				Flags:    store.flags,
 				Voice:    settings.Voice,
 				Voices:   store.voiceOptions,
 				SetVoice: store.setVoice,
@@ -130,6 +136,14 @@ func newReviewCommand(paths *deck.Paths) *cobra.Command {
 	f.BoolVar(&noBrowser, "no-browser", false, "only print the address instead of opening a browser")
 	googleFlags(cmd)
 	return cmd
+}
+
+func staleNotice(stale int, all bool) string {
+	needs := count(stale, "note needs", "notes need")
+	if all {
+		return needs + " a fresh 'arabic-vocab check'; the vowel flags shown for them are older than the note"
+	}
+	return needs + " a fresh 'arabic-vocab check' before their vowel flags can be shown"
 }
 
 func unwritten(ns []notes.Note) int {

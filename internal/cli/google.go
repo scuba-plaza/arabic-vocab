@@ -11,7 +11,9 @@ import (
 	"github.com/scuba-plaza/arabic-vocab/internal/deck"
 )
 
-func newSpeaker(ctx context.Context, creds config.Credentials, voice deck.Voice) (deck.Speaker, io.Closer, error) {
+var newSpeaker = connectSpeaker
+
+func connectSpeaker(ctx context.Context, creds config.Credentials, voice deck.Voice) (deck.Speaker, io.Closer, error) {
 	opts := tts.Options{Voice: voice.Name, Language: config.DefaultLanguage, SpeakingRate: voice.Rate, Concurrency: 1}
 	if err := opts.Validate(); err != nil {
 		return nil, nil, usageError{err}
