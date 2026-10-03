@@ -24,7 +24,7 @@ type Index struct {
 }
 
 func fold(s string) string {
-	return strings.NewReplacer("أ", "ا", "إ", "ا", "آ", "ا").Replace(s)
+	return tashkeel.Fold(s)
 }
 
 func NewIndex(lemmas []*lexicon.Lemma) *Index {

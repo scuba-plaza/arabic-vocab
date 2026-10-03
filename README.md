@@ -135,7 +135,7 @@ service account key in `.env/`.
 
 ```
 status    where the deck stands and what to run next
-add       add the next most common words, written by Claude Code
+add       add the next most common words, or the words you name, written by Claude Code
 check     cross-check every vowel with CAMeL and CATT
 review    go through flagged notes, or every note with --all
 audio     synthesize the audio and check it with speech recognition
@@ -148,7 +148,7 @@ New words go through `add`, `check`, `review`, `audio` and `build`, in that
 order, and `./arabic-vocab status` always names the next one:
 
 ```sh
-./arabic-vocab add        # the next 100 words; -n 50 for another number
+./arabic-vocab add        # the next 100 words; -n 50 for another number, or name the words
 ./arabic-vocab check
 ./arabic-vocab review
 ./arabic-vocab audio
@@ -177,6 +177,43 @@ Usage counts towards your plan's limits, so add a few hundred words at a time.
 Every finished note is saved straight away: when a run stops at a usage limit,
 run `add` again once the limit resets, and the words that were not written come
 first. The token totals are printed at the end.
+
+#### Adding specific words
+
+`add` also takes the words you want instead of the next ones in the ranking:
+as arguments, separated by commas, or one per line in a file (`#` starts a
+comment).
+
+```sh
+./arabic-vocab add كتاب عين
+./arabic-vocab add --file words.txt
+```
+
+A spelling often stands for several dictionary words: the noun ماء "water" and
+the verb مَاءَ "to meow", or عين "eye" and the verb عَيَّنَ "to appoint". When
+more than one MSA entry fits, `add` lists them with their part of speech and
+first meanings and asks which one you mean. Answer with a number, several such
+as `1,3`, `a` for all of them, `s` to skip the word or `q` to stop without
+adding anything; Enter takes the first. Type the vowels (`عَيَّنَ`) to narrow
+the list; entries that are already in the deck are marked. The entry you chose
+is passed on to Claude Code, which writes the card for exactly that entry
+instead of the likeliest one. `--yes` never asks: it takes the first sense of
+every word.
+
+The entries come from Wiktionary's Arabic dump, the file `rank` reads. The
+first time, `add` offers to download it (about 500 MB, into `deck-data/raw`);
+if you decline, only the ranked list is searched. Reading the dump takes a few
+seconds. Proper names and senses marked archaic, rare, classical or dialectal
+are left out, as everywhere in the deck.
+
+From there the new notes are like any others: they go through `check`,
+`review`, `audio` and `build`, and `status` names the next step. The main sense
+of a ranked word keeps its rank as its position, so it sits in frequency order
+and `add` without words does not add it a second time. Every other word, a
+further sense of a ranked word or a word outside the ranking, goes after the
+ranked ones, from position 100,001 on. Only the first 1,000 positions get a
+production card unless the note says `"production": true`; in Anki, Reposition
+moves the cards up if you want to meet them sooner.
 
 ### audio
 
@@ -271,7 +308,7 @@ make update  # move to the newest arabic-tts release
 ```
 cmd/arabic-vocab    entry point
 internal/cli        cobra commands
-internal/deck       pipeline stages: sources, next words, check, audio, voices, build
+internal/deck       pipeline stages: sources, next and named words, check, audio, voices, build
 internal/rank       frequency lists to ranked Wiktionary lemmas
 internal/lexicon    kaikki reader, MSA sense filter, lemma grouping
 internal/tashkeel   vowel-mark normalisation, lemma keys, reading comparison

@@ -289,3 +289,18 @@ func TestDifferencesMarkTheLettersThatDisagree(t *testing.T) {
 		}
 	}
 }
+
+func TestFoldMergesHamzatedAlefs(t *testing.T) {
+	cases := map[string]string{
+		"أَكَلَ":    "اَكَلَ",
+		"إِلَى":     "اِلَى",
+		"آخِر":      "اخِر",
+		"كِتَاب":    "كِتَاب",
+		"أَنْ أَنْ": "اَنْ اَنْ",
+	}
+	for in, want := range cases {
+		if got := Fold(in); got != want {
+			t.Errorf("Fold(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

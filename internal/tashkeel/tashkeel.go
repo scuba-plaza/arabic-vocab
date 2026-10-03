@@ -111,6 +111,12 @@ func Skeleton(s string) string {
 	return b.String()
 }
 
+var folder = strings.NewReplacer("أ", "ا", "إ", "ا", "آ", "ا")
+
+func Fold(s string) string {
+	return folder.Replace(s)
+}
+
 func articleLamFree(c cluster, next cluster) bool {
 	if !c.hasVowel() {
 		return true

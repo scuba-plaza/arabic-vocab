@@ -115,12 +115,27 @@ type rawEntry struct {
 }
 
 func Read(r io.Reader) ([]*Entry, error) {
+	return ReadWhere(r, nil)
+}
+
+func ReadWhere(r io.Reader, keep func(title string) bool) ([]*Entry, error) {
 	var entries []*Entry
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 1024*1024), 64*1024*1024)
 	line := 0
 	for sc.Scan() {
 		line++
+		if keep != nil {
+			var head struct {
+				Word string `json:"word"`
+			}
+			if err := json.Unmarshal(sc.Bytes(), &head); err != nil {
+				return nil, fmt.Errorf("wiktionary dump line %d: %w", line, err)
+			}
+			if !keep(head.Word) {
+				continue
+			}
+		}
 		var raw rawEntry
 		if err := json.Unmarshal(sc.Bytes(), &raw); err != nil {
 			return nil, fmt.Errorf("wiktionary dump line %d: %w", line, err)

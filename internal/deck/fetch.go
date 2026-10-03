@@ -20,9 +20,13 @@ type Source struct {
 	MaxLines int
 }
 
+func KaikkiSource(p Paths) Source {
+	return Source{Name: "Wiktionary Arabic (kaikki.org)", URL: "https://kaikki.org/dictionary/Arabic/kaikki.org-dictionary-Arabic.jsonl", Path: p.Kaikki()}
+}
+
 func Sources(p Paths) []Source {
 	return []Source{
-		{Name: "Wiktionary Arabic (kaikki.org)", URL: "https://kaikki.org/dictionary/Arabic/kaikki.org-dictionary-Arabic.jsonl", Path: p.Kaikki()},
+		KaikkiSource(p),
 		{Name: "OpenSubtitles frequency list", URL: "https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2018/ar/ar_50k.txt", Path: p.Subtitles()},
 		{Name: "CAMeL MSA frequency list", URL: "https://github.com/CAMeL-Lab/Camel_Arabic_Frequency_Lists/releases/download/v1.0/MSA_freq_lists.tsv.zip", Path: p.MSA(), ZipEntry: "MSA_freq_lists.tsv", MaxLines: 200000},
 		{Name: "Kelly CEFR list", URL: "https://raw.githubusercontent.com/kotoshu/frequency-list-kelly/main/data/ar.json", Path: p.Kelly()},

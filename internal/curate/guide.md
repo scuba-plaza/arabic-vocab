@@ -5,6 +5,7 @@ Choose the sense
 - Ignore senses marked obsolete, archaic, Classical, rare, dialectal or regional.
 - If one headword covers two unrelated common meanings, choose the most common and mention the other only if it is very frequent.
 - The draft may lead with the wrong Wiktionary entry for this spelling. If the frequency evidence clearly points to a different entry on the same page (for example the preposition rather than a rare noun), switch "arabic", "pos" and "forms" to that entry.
+- If a draft says the learner asked for a particular entry, that overrides the two rules above: write the card for exactly that entry, keep its headword, part of speech and forms, and choose only among its meanings.
 
 English
 - "english" is the prompt on the English-to-Arabic card: 1 to 4 words, lowercase except proper nouns and "I"; separate two senses with "; ". Verbs start with "to".
