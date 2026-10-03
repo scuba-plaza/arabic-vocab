@@ -55,7 +55,7 @@ func newCheckCommand(paths *deck.Paths) *cobra.Command {
 			if err := notes.WriteJSONL(paths.QA(), checks); err != nil {
 				return err
 			}
-			flagged, _ := review.Items(ns, checks, nil, nil, review.Filter{Minor: true})
+			flagged, _ := review.Items(ns, checks, review.Filter{Minor: true})
 			major := 0
 			for _, it := range flagged {
 				if it.Major() {

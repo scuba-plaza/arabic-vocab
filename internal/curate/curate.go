@@ -84,6 +84,7 @@ type Options struct {
 	Attempts    int
 	System      string
 	Feedback    map[int]string
+	Accept      func(draft notes.Note, card Card) error
 	Progress    func(done, total int, n notes.Note, err error)
 	Save        func([]notes.Note) error
 }
@@ -167,7 +168,7 @@ func Prompt(drafts []notes.Note, records map[string]*rank.Record, problems map[i
 		b.Write(marshal(CardOf(n)))
 		b.WriteByte('\n')
 		if rec := records[n.ID]; rec != nil && len(rec.Entries) > 0 {
-			b.WriteString("Wiktionary entries that share this spelling, the likeliest first:\n")
+			b.WriteString("Wiktionary entries for this word, the likeliest first:\n")
 			for _, e := range rec.Entries {
 				b.Write(marshal(e))
 				b.WriteByte('\n')
@@ -284,7 +285,6 @@ func Apply(n notes.Note, c Card) notes.Note {
 	n.ExampleEn = trim(c.ExampleEn)
 	n.Comment = trim(c.Comment)
 	n.Reviewed = nil
-	n.ReviewedAudio = nil
 	return n
 }
 
@@ -371,6 +371,9 @@ func Run(ctx context.Context, model Model, ns []notes.Note, targets []int, recor
 					}
 					if problem == nil {
 						problem = Validate(card)
+					}
+					if problem == nil && opts.Accept != nil {
+						problem = opts.Accept(ns[i], card)
 					}
 					if problem != nil {
 						problems[i] = problem

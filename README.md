@@ -20,8 +20,9 @@ example sentence for every word.
 - **Full tashkeel everywhere**: the headword, its forms (plural, present
   tense, masdar, feminine) and the example sentence including case endings.
 - **Audio** for the word, its forms and the example sentence.
-- **Tags**: `pos::noun`, `rank::0001-0500`, `cefr::A1`, and the `check::`
-  tags described below.
+- **Tags**: `pos::noun`, `rank::0001-0500` (`rank::unranked` for words added by
+  name from outside the ranking), `cefr::A1`, and the `check::` tags described
+  below.
 - **Stable note IDs**: importing a rebuilt package updates the notes in place
   and keeps your review history.
 
@@ -43,9 +44,6 @@ example sentence for every word.
    sentence independently and must agree, with CAMeL's contextual BERT
    disambiguator as a tie-breaker.
 
-`arabic-vocab audio` also transcribes every example clip back with speech
-recognition, to catch words the voice skipped or garbled.
-
 ## Reviewing flags
 
 `./arabic-vocab review` opens a page in your browser with every note that has
@@ -54,13 +52,13 @@ because terminals cannot place Arabic vowel marks reliably and a browser can.
 The card is on the left, in the deck's own font; the flags are on the right;
 all flagged notes are listed down the side. Each flag says in plain words what
 disagreed: the card's vowels next to CATT's and CAMeL's readings with the
-differing letters highlighted, the vowellings CAMeL knows for a word it
-rejects, or the words speech recognition heard. Every action is a button, and
-has a key that also works with an Arabic keyboard layout:
+differing letters highlighted, or the vowellings CAMeL knows for a word it
+rejects. Every action is a button, and has a key that also works with an
+Arabic keyboard layout:
 
 | Key | |
 | --- | --- |
-| `enter` | The card is right. Its flags go to the note's `reviewed` and `reviewed_audio` lists and stay out of the next build. |
+| `enter` | The card is right. Its flags go to the note's `reviewed` list and stay out of the next build. |
 | `e` | Edit the note in a form, with a live preview of the card. |
 | `1`, `2` | On a missing ending: add the ending CATT or CAMeL reads to the card's word, keeping its other vowels. The button shows the result, and when both read the same ending there is only `1`. |
 | `c` | Ask Claude Code for a better version. It is told what was flagged, works in the background while you carry on, and shows its version as a diff for you to keep (`y`) or not (`n`). |
@@ -72,10 +70,8 @@ Under the flags, every clip of the note — word, forms and sentence — has a
 **Remake** button that synthesizes it again with Google Text-to-Speech, exactly
 as `arabic-vocab audio` does, and a **Remove** button that deletes its MP3. A
 remade clip replaces the file the deck uses and plays at once: when the voice
-was unlucky and garbled a word, another try usually gets it right, and a
-remade example sentence is transcribed back on the spot, so a `check::audio`
-flag clears itself as soon as the clip is right (`--verify=false` leaves the
-transcribing out). A removed clip is made again by the next `audio` run.
+was unlucky and garbled a word, another try usually gets it right. A removed
+clip is made again by the next `audio` run.
 
 The same panel has the **voice**, picked from Google's ar-XA voices. Choosing
 another one writes it to `deck.json`, exactly as `audio --voice` does, so every
@@ -100,15 +96,13 @@ leave open become tags in the deck, with the details on the back of the card:
 | `check::diacritics` | No independent source supports the vowels, CAMeL rejects them, or a vowel mark is missing. |
 | `check::diacritics-minor` | CATT reads a word differently, but CAMeL agrees with the card. Usually CATT is wrong. |
 | `check::unverified` | The note needs a fresh `check`: it is new or changed, or was checked by an older version. |
-| `check::audio` | Speech recognition heard something other than the sentence. |
 
 ## Setup
 
 - Go 1.26 or newer
 - Python 3 (tested with 3.11), for `check` and `rank`
-- `ffmpeg`, to verify audio with speech recognition
-- A Google Cloud service account key with Text-to-Speech and Speech-to-Text
-  enabled, for audio (the same key [arabic-tts](https://github.com/scuba-plaza/arabic-tts) uses)
+- A Google Cloud service account key with Text-to-Speech enabled, for audio
+  (the same key [arabic-tts](https://github.com/scuba-plaza/arabic-tts) uses)
 - [Claude Code](https://claude.com/claude-code), logged in, for `add` and for
   `c` in `review`; a Pro or Max subscription is enough
 
@@ -122,7 +116,7 @@ the BERT disambiguator, and CATT ships its model inside the package, so the
 first `check` needs no further downloads. Set `CAMELTOOLS_DATA` to keep the
 CAMeL data somewhere other than `~/.camel_tools`.
 
-On NixOS, run everything inside `nix-shell`. Besides Go, ffmpeg and Python it
+On NixOS, run everything inside `nix-shell`. Besides Go and Python it
 puts the C++ runtime and zlib on `LD_LIBRARY_PATH`, which the pip wheels for
 numpy, torch, onnxruntime and kenlm need; without it `check` fails with
 `libstdc++.so.6: cannot open shared object file`.
@@ -135,10 +129,10 @@ service account key in `.env/`.
 
 ```
 status    where the deck stands and what to run next
-add       add the next most common words, written by Claude Code
+add       add the next most common words, or the words you name, written by Claude Code
 check     cross-check every vowel with CAMeL and CATT
 review    go through flagged notes, or every note with --all
-audio     synthesize the audio and check it with speech recognition
+audio     synthesize the audio
 build     write the Anki package
 voices    compare voices on words that differ only in their vowels
 rank      rank Wiktionary's words by frequency (the deck ships with a ranking)
@@ -148,7 +142,7 @@ New words go through `add`, `check`, `review`, `audio` and `build`, in that
 order, and `./arabic-vocab status` always names the next one:
 
 ```sh
-./arabic-vocab add        # the next 100 words; -n 50 for another number
+./arabic-vocab add        # the next 100 words; -n 50 for another number, or name the words
 ./arabic-vocab check
 ./arabic-vocab review
 ./arabic-vocab audio
@@ -174,9 +168,56 @@ word's case or mood ending without a vowel mark, are sent back once with the
 reason.
 
 Usage counts towards your plan's limits, so add a few hundred words at a time.
-Every finished note is saved straight away: when a run stops at a usage limit,
-run `add` again once the limit resets, and the words that were not written come
-first. The token totals are printed at the end.
+Every finished note is saved straight away, into the notes file as it is at
+that moment, so edits you make meanwhile are kept. When a run stops at a usage
+limit, `add` prints the command that writes the rest; run it once the limit
+resets. For the ranked words that is plain `add`, which continues with the
+words that were not written. Words you named are saved only once written, so
+the command lists them again. The token totals are printed at the end.
+
+#### Adding specific words
+
+`add` also takes the words you want instead of the next ones in the ranking:
+as arguments, separated by commas, or one per line in a file (`#` starts a
+comment).
+
+```sh
+./arabic-vocab add كتاب عين
+./arabic-vocab add --file words.txt
+```
+
+A spelling often stands for several dictionary words: the noun ماء "water" and
+the verb مَاءَ "to meow", or عين "eye" and the verb عَيَّنَ "to appoint". When
+more than one MSA entry fits, `add` lists them with their part of speech and
+first meanings and asks which one you mean. Answer with a number, several such
+as `1,3`, `a` for all of them, `s` to skip the word or `q` to stop without
+adding anything; Enter takes the first. Type the vowels (`عَيَّنَ`) to narrow
+the list; entries that are already in the deck are marked. The entry you chose
+is passed on to Claude Code, which writes the card for exactly that entry
+instead of the likeliest one, and a card for a different headword or a different
+kind of word (a verb for a noun, say) is sent back. A word the deck already has
+is left alone, even when its card was relabelled or renamed while it was
+written. A spelling is also found by its Wiktionary page title when the
+entry's headword is written differently, for example with the article.
+
+`--yes` never asks: it takes the first sense of every word, and it downloads the
+dump only for words the ranked list does not have. A blank argument such as
+`add ""` is an error, not a request for the next ranked words.
+
+The entries come from Wiktionary's Arabic dump, the file `rank` reads. The
+first time, `add` offers to download it (about 500 MB, into `deck-data/raw`);
+if you decline, or the download fails, only the ranked list is searched.
+Reading the dump takes a few seconds. Proper names and senses marked archaic,
+rare, classical or dialectal are left out, as everywhere in the deck.
+
+From there the new notes are like any others: they go through `check`,
+`review`, `audio` and `build`, and `status` names the next step. The main sense
+of a ranked word keeps its rank as its position, so it sits in frequency order
+and `add` without words does not add it a second time. Every other word, a
+further sense of a ranked word or a word outside the ranking, goes after the
+ranked ones, from position 100,001 on. Only the first 1,000 positions get a
+production card unless the note says `"production": true`; in Anki, Reposition
+moves the cards up if you want to meet them sooner.
 
 ### audio
 
@@ -188,9 +229,9 @@ that differ only in their vowels (عَلِمَ, عَلَّمَ, عُلِمَ …
 `audio --voice NAME` switches the deck to another voice and saves it there.
 Example sentences are spoken with a pausal ending, the way a reader stops: the
 last word of each sentence drops its case vowel, so أَمْسِ is read أَمْسْ,
-while the card still shows the full sentence. Numbers heard as digits count as
-a match. When Google's per-minute quota runs out, `audio` waits and retries for
-about a minute; if it still fails, run it again, since finished clips are kept.
+while the card still shows the full sentence. When Google's per-minute quota
+runs out, `audio` waits and retries for about a minute; if it still fails, run
+it again, since finished clips are kept.
 
 ### notes.jsonl
 
@@ -208,7 +249,6 @@ directly:
 | `example`, `example_en` | Sentence with the word in `<b>…</b>`, which the card shows in colour, and its translation. |
 | `production` | `true` or `false` to override the production-card cut-off. |
 | `reviewed` | Flagged words you have checked. |
-| `reviewed_audio` | Flagged audio clips you have listened to, by file name. |
 
 ## Re-ranking
 
@@ -271,7 +311,7 @@ make update  # move to the newest arabic-tts release
 ```
 cmd/arabic-vocab    entry point
 internal/cli        cobra commands
-internal/deck       pipeline stages: sources, next words, check, audio, voices, build
+internal/deck       pipeline stages: sources, next and named words, check, audio, voices, build
 internal/rank       frequency lists to ranked Wiktionary lemmas
 internal/lexicon    kaikki reader, MSA sense filter, lemma grouping
 internal/tashkeel   vowel-mark normalisation, lemma keys, reading comparison

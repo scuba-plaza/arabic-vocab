@@ -16,8 +16,6 @@ func note(id string, pos int, example string) notes.Note {
 type fixture struct {
 	ns     []notes.Note
 	checks []notes.Check
-	audio  []notes.AudioCheck
-	index  map[string]string
 }
 
 func newFixture() fixture {
@@ -38,17 +36,16 @@ func newFixture() fixture {
 			{Field: "example", Kind: "diacritics", Severity: notes.Minor, Word: "سَاعَةً", Detail: "CATT reads سَاعَةٍ; CAMeL agrees with the card", CATT: "سَاعَةٍ", CAMeL: "سَاعَةً"},
 		}},
 		{ID: c.ID, Version: deck.CheckVersion, Digest: "stale", Issues: []notes.Issue{{Field: "example", Kind: "diacritics", Severity: notes.Major, Word: "قَدِيمٌ"}}},
-		{ID: d.ID, Version: deck.CheckVersion, Digest: d.Digest()},
+		{ID: d.ID, Version: deck.CheckVersion, Digest: d.Digest(), Issues: []notes.Issue{
+			{Field: "example", Kind: "diacritics", Severity: notes.Major, Word: "الْبَابَ", Detail: "CATT reads الْبَابِ; CAMeL reads الْبَابُ", CATT: "الْبَابِ", CAMeL: "الْبَابُ"},
+		}},
 		{ID: e.ID, Version: deck.CheckVersion, Digest: e.Digest(), Issues: []notes.Issue{{Field: "forms", Kind: "invalid", Severity: notes.Major, Word: "عَشْر"}}},
 	}
-	dText := deck.AudioTexts(d)[1].Text
-	index := map[string]string{dText: "ar-bab.mp3"}
-	audio := []notes.AudioCheck{{ID: d.ID, Field: "ExampleAudio", Text: dText, File: "ar-bab.mp3", Transcript: "اغلق الباب الان"}}
-	return fixture{ns: ns, checks: checks, audio: audio, index: index}
+	return fixture{ns: ns, checks: checks}
 }
 
 func (f fixture) items(filter Filter) ([]Item, int) {
-	return Items(f.ns, f.checks, f.audio, f.index, filter)
+	return Items(f.ns, f.checks, filter)
 }
 
 func TestItemsCollectsUnreviewedFlags(t *testing.T) {
@@ -64,7 +61,7 @@ func TestItemsCollectsUnreviewedFlags(t *testing.T) {
 	if !slices.Equal(got, []string{"مَوْقِع", "كَمْ", "بَاب"}) {
 		t.Fatalf("items = %v", got)
 	}
-	if items[0].Len() != 2 || len(items[2].Audio) != 1 {
+	if items[0].Len() != 2 || items[2].Len() != 1 {
 		t.Errorf("items = %+v", items)
 	}
 
@@ -98,10 +95,9 @@ func TestItemsWithAllKeepsEveryWrittenNote(t *testing.T) {
 func TestFeedbackDescribesEveryFlag(t *testing.T) {
 	it := Item{
 		Issues: []notes.Issue{{Field: "example", Kind: "unchecked", Detail: "CATT's reading could not be aligned with the sentence"}},
-		Audio:  []notes.AudioCheck{{Field: "ExampleAudio", Transcript: "فذهبت الى السوق"}},
 	}
 	got := Feedback(it)
-	for _, want := range []string{"- the example: CATT's reading could not be aligned", `heard "فذهبت الى السوق" when the example audio`, "rewrite the example so it reads only one way"} {
+	for _, want := range []string{"- the example: CATT's reading could not be aligned", "rewrite the example so it reads only one way"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("feedback lacks %q:\n%s", want, got)
 		}

@@ -35,15 +35,11 @@ func newBuildCommand(paths *deck.Paths) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			audio, err := notes.ReadJSONL[notes.AudioCheck](paths.AudioQA())
-			if err != nil {
-				return err
-			}
 			manifest, err := notes.ReadJSONL[deck.ManifestEntry](paths.Manifest())
 			if err != nil {
 				return err
 			}
-			pkg, summary, err := deck.BuildPackage(ns, checks, audio, deck.BuildOptions{
+			pkg, summary, err := deck.BuildPackage(ns, checks, deck.BuildOptions{
 				ProductionLimit: productionLimit,
 				ProductionDelay: productionDelay,
 				Audio:           deck.AudioIndex(manifest),

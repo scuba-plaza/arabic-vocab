@@ -26,13 +26,3 @@ func TestCommonFindsTheSharedWords(t *testing.T) {
 		t.Errorf("common = %v %v", inA, inB)
 	}
 }
-
-func TestSpokenDiffIgnoresVowelsAndPunctuation(t *testing.T) {
-	want, missing, heard, extra := spokenDiff("أَغْلِقِ الْبَابَ.", "اغلق الباب الان")
-	if len(want) != 2 || slices.Contains(missing, true) {
-		t.Errorf("want %q missing %v", want, missing)
-	}
-	if !slices.Equal(extra, []bool{false, false, true}) || heard[2] != "الان" {
-		t.Errorf("heard %q extra %v", heard, extra)
-	}
-}

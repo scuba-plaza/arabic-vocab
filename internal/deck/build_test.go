@@ -17,7 +17,7 @@ func note(id string, pos int) notes.Note {
 
 func tagsOf(t *testing.T, ns []notes.Note, checks []notes.Check) map[string][]string {
 	t.Helper()
-	pkg, _, err := BuildPackage(ns, checks, nil, BuildOptions{ProductionLimit: 1, MediaDir: t.TempDir()})
+	pkg, _, err := BuildPackage(ns, checks, BuildOptions{ProductionLimit: 1, MediaDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +52,7 @@ func TestBuildAddsProductionCardsUpToTheLimit(t *testing.T) {
 	no := false
 	first, second, third := note("كِتَاب", 1), note("قَلَم", 2), note("بَيْت", 1)
 	third.ID, third.Position, third.Production = "بَاب", 3, &no
-	pkg, summary, err := BuildPackage([]notes.Note{first, second, third}, nil, nil, BuildOptions{ProductionLimit: 1, ProductionDelay: 5, MediaDir: t.TempDir()})
+	pkg, summary, err := BuildPackage([]notes.Note{first, second, third}, nil, BuildOptions{ProductionLimit: 1, ProductionDelay: 5, MediaDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,6 +64,22 @@ func TestBuildAddsProductionCardsUpToTheLimit(t *testing.T) {
 	}
 	if !slices.Contains(pkg.Notes[0].Tags, "rank::0001-0500") || !slices.Contains(pkg.Notes[0].Tags, "pos::noun") {
 		t.Errorf("tags %v", pkg.Notes[0].Tags)
+	}
+}
+
+func TestBuildTagsWordsOutsideTheRankingAsUnranked(t *testing.T) {
+	ranked, extra := note("كِتَاب", 1), note("قَلَم", 2)
+	ranked.Position, extra.Position = 500, UnrankedBase+1
+	extra.ID = "قَلَم"
+	pkg, _, err := BuildPackage([]notes.Note{ranked, extra}, nil, BuildOptions{MediaDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(pkg.Notes[0].Tags, "rank::0001-0500") {
+		t.Errorf("ranked tags %v", pkg.Notes[0].Tags)
+	}
+	if !slices.Contains(pkg.Notes[1].Tags, "rank::unranked") || slices.ContainsFunc(pkg.Notes[1].Tags, func(s string) bool { return strings.HasPrefix(s, "rank::1") }) {
+		t.Errorf("a word added by name outside the ranking should be tagged rank::unranked, got %v", pkg.Notes[1].Tags)
 	}
 }
 

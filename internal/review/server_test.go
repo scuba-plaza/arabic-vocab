@@ -31,7 +31,7 @@ type harness struct {
 	mu        sync.Mutex
 	feedbacks []string
 	rewrite   func(notes.Note) (notes.Note, error)
-	remake    func(notes.Note, string) (*notes.AudioCheck, error)
+	remake    func(notes.Note, string) error
 	removed   []string
 	removeErr error
 	voice     string
@@ -71,9 +71,9 @@ func newFilteredHarness(t *testing.T, filter Filter) *harness {
 			}
 			return ""
 		},
-		Remake: func(_ context.Context, n notes.Note, field string) (*notes.AudioCheck, error) {
+		Remake: func(_ context.Context, n notes.Note, field string) error {
 			if h.remake == nil {
-				return nil, nil
+				return nil
 			}
 			return h.remake(n, field)
 		},
@@ -179,8 +179,8 @@ func TestKeepMarksTheCardRightAndMovesOn(t *testing.T) {
 	if !slices.Equal(h.f.ns[0].Reviewed, []string{"وَجَدْتُ", "الْمَعْلُومَاتِ"}) || h.saves != 1 {
 		t.Fatalf("reviewed %q after %d saves", h.f.ns[0].Reviewed, h.saves)
 	}
-	if _, res = h.post("keep", 2, nil); res.Show != 1 || !slices.Equal(h.f.ns[3].ReviewedAudio, []string{"ar-bab.mp3"}) {
-		t.Fatalf("audio keep: %+v, reviewed audio %q", res, h.f.ns[3].ReviewedAudio)
+	if _, res = h.post("keep", 2, nil); res.Show != 1 || !slices.Equal(h.f.ns[3].Reviewed, []string{"الْبَابَ"}) {
+		t.Fatalf("keep: %+v, reviewed %q", res, h.f.ns[3].Reviewed)
 	}
 	if _, res = h.post("keep", 1, nil); res.Show != -1 {
 		t.Fatalf("the last open note should lead to the summary, got %+v", res)
@@ -323,13 +323,8 @@ func TestFlagsAreExplainedWithHighlights(t *testing.T) {
 	if got := classes(e.Card.Example); !slices.Contains(got, "flag-major target") || !slices.Contains(got, "flag-minor") {
 		t.Errorf("example classes %q", got)
 	}
-	audio := h.state(2).Entry
-	if want := []clipView{{Kind: "word"}, {Kind: "sentence", Ready: true}}; !slices.Equal(audio.Clips, want) {
-		t.Errorf("clips %+v", audio.Clips)
-	}
-	heard := audio.Flags[0].Rows[1]
-	if heard.Label != "heard" || !slices.Equal(classes(heard.Spans), []string{"mark-audio"}) || !strings.Contains(heard.Spans[len(heard.Spans)-1].T, "الان") {
-		t.Errorf("heard row %+v", heard)
+	if want := []clipView{{Kind: "word"}, {Kind: "sentence", Ready: true}}; !slices.Equal(h.state(2).Entry.Clips, want) {
+		t.Errorf("clips %+v", h.state(2).Entry.Clips)
 	}
 }
 
@@ -381,32 +376,24 @@ func TestClipsAreRemadeAndRemoved(t *testing.T) {
 	if !h.state(2).Audio {
 		t.Fatal("the page should offer the audio buttons")
 	}
-	text := h.state(2).Entry.Note.Example
-	h.remake = func(n notes.Note, field string) (*notes.AudioCheck, error) {
-		if field != "ExampleAudio" {
-			return nil, nil
-		}
-		return &notes.AudioCheck{ID: n.ID, Field: field, Text: text, File: "ar-bab.mp3", Transcript: "اغلق الشباك", Match: false}, nil
+	var remade []string
+	h.remake = func(n notes.Note, field string) error {
+		remade = append(remade, n.ID+" "+field)
+		return nil
 	}
 	code, res := h.post("remake", 2, clipRequest{Clip: "sentence"})
-	if code != http.StatusOK || res.Show != 2 || !strings.Contains(res.Message, `heard "اغلق الشباك"`) {
+	if code != http.StatusOK || res.Show != 2 || !strings.Contains(res.Message, "Made the sentence audio of بَاب again; listen to it") {
 		t.Fatalf("remake: %d %+v", code, res)
 	}
-	if flags := h.state(2).Entry.Flags; len(flags) != 1 || !strings.Contains(spanText(flags[0].Rows[1].Spans), "الشباك") {
-		t.Fatalf("the flag should show what was heard this time: %+v", flags)
+	if !slices.Equal(remade, []string{"بَاب ExampleAudio"}) {
+		t.Errorf("remade %q", remade)
 	}
-	h.remake = func(n notes.Note, field string) (*notes.AudioCheck, error) {
-		return &notes.AudioCheck{ID: n.ID, Field: field, Text: text, File: "ar-bab.mp3", Transcript: "اغلق الباب", Match: true}, nil
+	if code, res = h.post("remake", 0, clipRequest{Clip: "word"}); code != http.StatusOK || !strings.Contains(res.Message, "word audio") {
+		t.Errorf("remaking a word clip: %d %+v", code, res)
 	}
-	if _, res = h.post("remake", 2, clipRequest{Clip: "sentence"}); !strings.Contains(res.Message, "transcribes back") {
-		t.Fatalf("a matching remake: %+v", res)
-	}
-	if flags := h.state(2).Entry.Flags; len(flags) != 0 {
-		t.Fatalf("a clip that transcribes back should clear its flag: %+v", flags)
-	}
-	h.remake = nil
-	if _, res = h.post("remake", 0, clipRequest{Clip: "word"}); !strings.Contains(res.Message, "word audio") {
-		t.Errorf("remaking a word clip: %+v", res)
+	h.remake = func(notes.Note, string) error { return errors.New("quota exceeded") }
+	if code, res = h.post("remake", 2, clipRequest{Clip: "sentence"}); code != http.StatusInternalServerError || !strings.Contains(res.Message, "quota exceeded") {
+		t.Errorf("a failing remake: %d %+v", code, res)
 	}
 	if code, res = h.post("remake", 2, clipRequest{Clip: "nothing"}); code != http.StatusBadRequest || !strings.Contains(res.Message, `no "nothing" clip`) {
 		t.Errorf("an unknown clip: %d %+v", code, res)

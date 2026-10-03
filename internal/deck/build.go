@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -109,6 +108,9 @@ func formsHTML(n notes.Note) string {
 }
 
 func rankBucket(pos int) string {
+	if pos > UnrankedBase {
+		return "rank::unranked"
+	}
 	lo := (pos-1)/500*500 + 1
 	return fmt.Sprintf("rank::%04d-%04d", lo, lo+499)
 }
@@ -120,7 +122,7 @@ func WantsProduction(n notes.Note, limit int) bool {
 	return n.Position <= limit
 }
 
-func BuildPackage(ns []notes.Note, checks []notes.Check, audio []notes.AudioCheck, opts BuildOptions) (*anki.Package, BuildSummary, error) {
+func BuildPackage(ns []notes.Note, checks []notes.Check, opts BuildOptions) (*anki.Package, BuildSummary, error) {
 	if opts.ProductionLimit == 0 {
 		opts.ProductionLimit = 1000
 	}
@@ -130,10 +132,6 @@ func BuildPackage(ns []notes.Note, checks []notes.Check, audio []notes.AudioChec
 	byID := map[string]notes.Check{}
 	for _, c := range checks {
 		byID[c.ID] = c
-	}
-	audioByID := map[string][]notes.AudioCheck{}
-	for _, a := range audio {
-		audioByID[a.ID] = append(audioByID[a.ID], a)
 	}
 	pkg := &anki.Package{
 		Deck: anki.Deck{
@@ -221,10 +219,6 @@ func BuildPackage(ns []notes.Note, checks []notes.Check, audio []notes.AudioChec
 				tags = append(tags, "check::diacritics-minor")
 			}
 		}
-		for _, a := range OpenAudio(n, audioByID[n.ID], opts.Audio) {
-			tags = appendUnique(tags, "check::audio")
-			checkLines = append(checkLines, "Speech recognition heard "+markArabic(a.Transcript)+" in the "+strings.ToLower(strings.TrimSuffix(a.Field, "Audio"))+" audio ("+html.EscapeString(a.File)+").")
-		}
 		if len(checkLines) > 0 {
 			set("Check", "<b>Check:</b><br>"+strings.Join(checkLines, "<br>"))
 		}
@@ -245,13 +239,6 @@ func BuildPackage(ns []notes.Note, checks []notes.Check, audio []notes.AudioChec
 		summary.Cards += len(cards)
 	}
 	return pkg, summary, nil
-}
-
-func appendUnique(list []string, s string) []string {
-	if slices.Contains(list, s) {
-		return list
-	}
-	return append(list, s)
 }
 
 func MediaPath(dir, file string) string {

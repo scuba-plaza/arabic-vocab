@@ -57,14 +57,6 @@ func readStatus(paths *deck.Paths) (deckStatus, error) {
 	if err != nil {
 		return s, err
 	}
-	audioChecks, err := notes.ReadJSONL[notes.AudioCheck](paths.AudioQA())
-	if err != nil {
-		return s, err
-	}
-	manifest, err := notes.ReadJSONL[deck.ManifestEntry](paths.Manifest())
-	if err != nil {
-		return s, err
-	}
 	if s.settings, err = deck.LoadSettings(paths.Settings()); err != nil {
 		return s, err
 	}
@@ -78,7 +70,7 @@ func readStatus(paths *deck.Paths) (deckStatus, error) {
 	}
 	s.written = len(written)
 	s.checked = len(checks) > 0
-	items, stale := review.Items(written, checks, audioChecks, deck.AudioIndex(manifest), review.Filter{Minor: true})
+	items, stale := review.Items(written, checks, review.Filter{Minor: true})
 	s.unchecked = stale
 	for _, it := range items {
 		if it.Major() {
@@ -105,7 +97,7 @@ func readStatus(paths *deck.Paths) (deckStatus, error) {
 	s.pkg = paths.Package(deck.DeckFileName)
 	if st, err := os.Stat(s.pkg); err == nil {
 		s.pkgExists = true
-		s.pkgStale = st.ModTime().Before(newest(paths.Notes(), paths.QA(), paths.AudioQA(), paths.Manifest(), paths.Settings()))
+		s.pkgStale = st.ModTime().Before(newest(paths.Notes(), paths.QA(), paths.Manifest(), paths.Settings()))
 	}
 	return s, nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -22,12 +23,10 @@ const (
 
 type globals struct {
 	credentials string
-	project     string
-	region      string
 	quiet       bool
 }
 
-var g = globals{region: config.DefaultRegion}
+var g globals
 
 type usageError struct{ error }
 
@@ -78,13 +77,8 @@ func newRootCommand() *cobra.Command {
 	return root
 }
 
-func googleFlags(cmd *cobra.Command, region bool) {
-	f := cmd.Flags()
-	f.StringVar(&g.credentials, "credentials", "", "Google service account JSON key (default: $GOOGLE_APPLICATION_CREDENTIALS, then .env/*.json)")
-	f.StringVar(&g.project, "project", "", "Google Cloud project ID (default: the key's project)")
-	if region {
-		f.StringVar(&g.region, "region", config.DefaultRegion, "Speech-to-Text region for checking the audio")
-	}
+func googleFlags(cmd *cobra.Command) {
+	cmd.Flags().StringVar(&g.credentials, "credentials", "", "Google service account JSON key (default: $GOOGLE_APPLICATION_CREDENTIALS, then .env/*.json)")
 }
 
 func Execute(ctx context.Context) int {
@@ -100,14 +94,7 @@ func Execute(ctx context.Context) int {
 }
 
 func resolve() (config.Credentials, error) {
-	creds, err := config.ResolveCredentials(g.credentials)
-	if err != nil {
-		return config.Credentials{}, err
-	}
-	if g.project != "" {
-		creds.ProjectID = g.project
-	}
-	return creds, nil
+	return config.ResolveCredentials(g.credentials)
 }
 
 func count(n int, one, many string) string {
@@ -117,9 +104,11 @@ func count(n int, one, many string) string {
 	return fmt.Sprintf("%d %s", n, many)
 }
 
+var progress io.Writer = os.Stderr
+
 func infof(format string, args ...any) {
 	if g.quiet {
 		return
 	}
-	fmt.Fprintf(os.Stderr, format, args...)
+	fmt.Fprintf(progress, format, args...)
 }

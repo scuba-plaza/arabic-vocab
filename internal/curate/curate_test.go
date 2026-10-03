@@ -243,10 +243,10 @@ func TestValidate(t *testing.T) {
 }
 
 func TestApplySwitchingPartOfSpeech(t *testing.T) {
-	n := notes.Note{ID: "x", Position: 9, Arabic: "بَعْد", Pos: "noun", Gender: "m", Reviewed: []string{"بَعْدَ"}, ReviewedAudio: []string{"ar-0.mp3"}}
+	n := notes.Note{ID: "x", Position: 9, Arabic: "بَعْد", Pos: "noun", Gender: "m", Reviewed: []string{"بَعْدَ"}}
 	c := Card{Position: 9, Arabic: "بَعْدَ", Pos: "prep", English: "after", Example: "<b>بَعْدَ</b> الدَّرْسِ.", ExampleEn: "After the lesson.", Forms: []notes.Form{}}
 	got := Apply(n, c)
-	if got.Pos != "prep" || got.Arabic != "بَعْدَ" || got.Reviewed != nil || got.ReviewedAudio != nil || got.Forms != nil || got.ID != "x" || got.Position != 9 {
+	if got.Pos != "prep" || got.Arabic != "بَعْدَ" || got.Reviewed != nil || got.Forms != nil || got.ID != "x" || got.Position != 9 {
 		t.Fatalf("applied = %+v", got)
 	}
 	v := Apply(notes.Note{Pos: "noun", Gender: "f"}, Card{Pos: "verb"})
@@ -298,5 +298,50 @@ func TestRunPassesFeedbackToEveryAttempt(t *testing.T) {
 	res, err := Run(context.Background(), fake, ns, []int{1}, nil, Options{Feedback: map[int]string{2: "The checker flagged قَرَأْتُ."}})
 	if err != nil || res.Curated != 1 || len(fake.requests) != 2 {
 		t.Fatalf("curated %d in %d calls, err %v", res.Curated, len(fake.requests), err)
+	}
+}
+
+func TestRunSendsBackCardsThatTheAcceptHookRefuses(t *testing.T) {
+	ns := sampleNotes()
+	wrong := at(kitab, 2)
+	wrong.Pos = "verb"
+	var drafts []string
+	accept := func(draft notes.Note, card Card) error {
+		drafts = append(drafts, draft.Pos+"→"+card.Pos)
+		if card.Pos != draft.Pos {
+			return errors.New("the card is for another entry")
+		}
+		return nil
+	}
+	fake := &fakeModel{respond: func(req Request, call int) (*Response, error) {
+		if call == 1 {
+			return answer(wrong, at(kataba, 3)), nil
+		}
+		if !strings.Contains(req.Prompt, "rejected: the card is for another entry") || strings.Contains(req.Prompt, "## Position 3") {
+			t.Errorf("only the refused card goes back, with the reason:\n%s", req.Prompt)
+		}
+		return answer(at(kitab, 2)), nil
+	}}
+	res, err := Run(context.Background(), fake, ns, []int{1, 2}, sampleRecords(), Options{Accept: accept})
+	if err != nil || res.Curated != 2 || len(fake.requests) != 2 || ns[1].Pos != "noun" {
+		t.Fatalf("curated %d in %d calls, err %v, note %+v", res.Curated, len(fake.requests), err, ns[1])
+	}
+	if want := []string{"noun→verb", "verb→verb", "noun→noun"}; strings.Join(drafts, " ") != strings.Join(want, " ") {
+		t.Errorf("the hook saw %v, want %v: it must see the draft as it was before the card was applied", drafts, want)
+	}
+
+	ns = sampleNotes()
+	fake = &fakeModel{respond: func(Request, int) (*Response, error) { return answer(wrong), nil }}
+	res, err = Run(context.Background(), fake, ns, []int{1}, sampleRecords(), Options{Accept: accept, Attempts: 2})
+	if err != nil || res.Curated != 0 || len(res.Failed) != 1 || !strings.Contains(res.Failed[0].Err.Error(), "another entry") || ns[1].Authored() {
+		t.Fatalf("a card that is refused every time fails: %+v, %v", res, err)
+	}
+}
+
+func TestPromptDoesNotClaimThatTheEntriesShareASpelling(t *testing.T) {
+	ns := sampleNotes()
+	got := Prompt(ns[1:2], sampleRecords(), nil)
+	if strings.Contains(got, "share this spelling") || !strings.Contains(got, "Wiktionary entries for this word, the likeliest first:") {
+		t.Errorf("the entries of a named word are only the ones the learner chose:\n%s", got)
 	}
 }

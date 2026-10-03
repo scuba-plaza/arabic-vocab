@@ -6,8 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/scuba-plaza/arabic-tts/arabic"
-
 	"github.com/scuba-plaza/arabic-vocab/internal/deck"
 	"github.com/scuba-plaza/arabic-vocab/internal/notes"
 	"github.com/scuba-plaza/arabic-vocab/internal/tashkeel"
@@ -169,9 +167,6 @@ func toneOf(it Item) string {
 			return "bad"
 		}
 	}
-	if len(it.Audio) > 0 {
-		return "audio"
-	}
 	return "warn"
 }
 
@@ -190,9 +185,6 @@ func (s *session) entryView(i int) entryView {
 	faded := e.state != open
 	for _, is := range e.Issues {
 		v.Flags = append(v.Flags, issueView(is, faded))
-	}
-	for _, a := range e.Audio {
-		v.Flags = append(v.Flags, audioFlagView(a, faded))
 	}
 	if e.proposal != nil {
 		v.Changes = changes(n, *e.proposal)
@@ -410,25 +402,6 @@ func bareLetters(is notes.Issue) []bool {
 		}
 	}
 	return out
-}
-
-func audioFlagView(a notes.AudioCheck, faded bool) flagView {
-	hl := "mark-audio"
-	if faded {
-		hl = ""
-	}
-	want, wantMissing, heard, heardExtra := spokenDiff(arabic.StripTashkeel(a.Text), a.Transcript)
-	rows := []row{{Label: "text", Spans: wordSpans(want, wantMissing, hl), RTL: true}}
-	if a.Transcript == "" {
-		rows = append(rows, row{Label: "heard", Spans: []span{}, Note: "nothing"})
-	} else {
-		rows = append(rows, row{Label: "heard", Spans: wordSpans(heard, heardExtra, hl), RTL: true})
-	}
-	return flagView{
-		Tone: "audio", Symbol: "♪", Title: "Speech recognition heard something else",
-		Where: fieldName(a.Field) + " · audio", Rows: rows,
-		Explain: "Play the sentence. If it sounds right, the card is right.", Faded: faded,
-	}
 }
 
 func wordSpans(ws []string, marked []bool, class string) []span {

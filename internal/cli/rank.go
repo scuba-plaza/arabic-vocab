@@ -23,18 +23,25 @@ const (
 )
 
 func download(ctx context.Context, paths *deck.Paths, refresh bool) error {
-	client := &http.Client{Timeout: 30 * time.Minute}
 	for _, s := range deck.Sources(*paths) {
-		if st, err := os.Stat(s.Path); err == nil && st.Size() > 0 && !refresh {
-			continue
-		}
-		infof("downloading %s ... ", deck.Describe(s))
-		if _, err := deck.Fetch(ctx, client, s, true); err != nil {
-			infof("failed\n")
+		if err := downloadSource(ctx, s, refresh); err != nil {
 			return err
 		}
-		infof("done\n")
 	}
+	return nil
+}
+
+func downloadSource(ctx context.Context, s deck.Source, refresh bool) error {
+	if st, err := os.Stat(s.Path); err == nil && st.Size() > 0 && !refresh {
+		return nil
+	}
+	client := &http.Client{Timeout: 30 * time.Minute}
+	infof("downloading %s ... ", deck.Describe(s))
+	if _, err := deck.Fetch(ctx, client, s, true); err != nil {
+		infof("failed\n")
+		return err
+	}
+	infof("done\n")
 	return nil
 }
 

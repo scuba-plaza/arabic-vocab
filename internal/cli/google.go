@@ -2,12 +2,10 @@ package cli
 
 import (
 	"context"
-	"errors"
 	"io"
 
 	"github.com/scuba-plaza/arabic-tts/config"
 	"github.com/scuba-plaza/arabic-tts/gcp"
-	"github.com/scuba-plaza/arabic-tts/stt"
 	"github.com/scuba-plaza/arabic-tts/tts"
 
 	"github.com/scuba-plaza/arabic-vocab/internal/deck"
@@ -38,25 +36,4 @@ func listVoices(ctx context.Context, creds config.Credentials) ([]tts.VoiceInfo,
 	}
 	defer client.Close()
 	return tts.ListVoices(ctx, client, config.DefaultLanguage, "")
-}
-
-func newListener(ctx context.Context, creds config.Credentials) (deck.Listener, io.Closer, error) {
-	client, err := gcp.NewSpeechClient(ctx, creds, g.region)
-	if err != nil {
-		return nil, nil, err
-	}
-	listen := func(ctx context.Context, path string) (string, error) {
-		tr, err := stt.TranscribeFile(ctx, client, path, stt.Options{
-			Project: creds.ProjectID, Region: g.region, Language: config.DefaultLanguage,
-			Model: config.DefaultSTTModel, Concurrency: 1,
-		})
-		if errors.Is(err, stt.ErrNoSpeech) {
-			return "", nil
-		}
-		if err != nil {
-			return "", err
-		}
-		return tr.Text(), nil
-	}
-	return listen, client, nil
 }

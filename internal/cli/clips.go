@@ -10,7 +10,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/scuba-plaza/arabic-tts/audio"
 	"github.com/scuba-plaza/arabic-tts/config"
 
 	"github.com/scuba-plaza/arabic-vocab/internal/deck"
@@ -24,21 +23,15 @@ type clips struct {
 	mu       sync.Mutex
 	paths    *deck.Paths
 	voice    deck.Voice
-	verify   bool
 	manifest []deck.ManifestEntry
 	files    map[string]string
-	checks   []notes.AudioCheck
 	options  []review.VoiceOption
 	speak    deck.Speaker
-	listen   deck.Listener
 	closers  []io.Closer
 }
 
-func newClips(paths *deck.Paths, voice deck.Voice, manifest []deck.ManifestEntry, checks []notes.AudioCheck, verify bool) *clips {
-	return &clips{
-		paths: paths, voice: voice, verify: verify,
-		manifest: manifest, files: deck.AudioIndex(manifest), checks: checks,
-	}
+func newClips(paths *deck.Paths, voice deck.Voice, manifest []deck.ManifestEntry) *clips {
+	return &clips{paths: paths, voice: voice, manifest: manifest, files: deck.AudioIndex(manifest)}
 }
 
 func clipText(n notes.Note, field string) (string, error) {
@@ -48,12 +41,6 @@ func clipText(n notes.Note, field string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("%s has no %s to speak", n.Arabic, clipLabels[field])
-}
-
-func (c *clips) index() map[string]string {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.files
 }
 
 func (c *clips) path(n notes.Note, field string) string {
@@ -89,72 +76,41 @@ func (c *clips) remove(n notes.Note, field string) error {
 		return err
 	}
 	c.manifest = slices.DeleteFunc(c.manifest, func(m deck.ManifestEntry) bool { return m.Text == text })
-	c.checks = slices.DeleteFunc(c.checks, func(a notes.AudioCheck) bool { return a.ID == n.ID && a.Text == text })
 	return c.save()
 }
 
-func (c *clips) remake(ctx context.Context, n notes.Note, field string) (*notes.AudioCheck, error) {
+func (c *clips) remake(ctx context.Context, n notes.Note, field string) error {
 	text, err := clipText(n, field)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	speak, listen, err := c.connect(ctx)
+	speak, err := c.connect(ctx)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	file := deck.AudioFile(c.voice.Key(), text)
-	path := c.paths.MediaFile(file)
-	if err := speak(ctx, text, path); err != nil {
-		return nil, err
+	if err := speak(ctx, text, c.paths.MediaFile(file)); err != nil {
+		return err
 	}
-	if err := c.store(deck.ManifestEntry{Text: text, Voice: c.voice.Name, Rate: c.voice.Rate, File: file}); err != nil {
-		return nil, err
-	}
-	if field != "ExampleAudio" || listen == nil {
-		return nil, nil
-	}
-	transcript, err := listen(ctx, path)
-	if err != nil {
-		return nil, fmt.Errorf("the clip was made again, but speech recognition failed: %w", err)
-	}
-	check := notes.AudioCheck{
-		ID: n.ID, Field: field, Text: text, File: file,
-		Transcript: transcript, Match: deck.TranscriptMatches(text, transcript),
-	}
-	if err := c.record(check); err != nil {
-		return nil, err
-	}
-	return &check, nil
+	return c.store(deck.ManifestEntry{Text: text, Voice: c.voice.Name, Rate: c.voice.Rate, File: file})
 }
 
-func (c *clips) connect(ctx context.Context) (deck.Speaker, deck.Listener, error) {
+func (c *clips) connect(ctx context.Context) (deck.Speaker, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.speak != nil {
-		return c.speak, c.listen, nil
+		return c.speak, nil
 	}
 	creds, err := resolve()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	speak, client, err := newSpeaker(ctx, creds, c.voice)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	c.speak, c.closers = speak, append(c.closers, client)
-	switch {
-	case !c.verify:
-	case audio.Available() != nil:
-		infof("%v; remade clips will not be transcribed back, as --verify asks\n", audio.Available())
-	default:
-		listen, client, err := newListener(ctx, creds)
-		if err != nil {
-			infof("speech recognition is not available (%v); remade clips will not be transcribed back\n", err)
-		} else {
-			c.listen, c.closers = listen, append(c.closers, client)
-		}
-	}
-	return c.speak, c.listen, nil
+	return c.speak, nil
 }
 
 func (c *clips) voiceOptions(ctx context.Context) ([]review.VoiceOption, error) {
@@ -212,24 +168,9 @@ func (c *clips) store(m deck.ManifestEntry) error {
 	return c.save()
 }
 
-func (c *clips) record(check notes.AudioCheck) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	same := func(a notes.AudioCheck) bool { return a.ID == check.ID && a.Text == check.Text }
-	if i := slices.IndexFunc(c.checks, same); i >= 0 {
-		c.checks[i] = check
-	} else {
-		c.checks = append(c.checks, check)
-	}
-	return c.save()
-}
-
 func (c *clips) save() error {
 	c.files = deck.AudioIndex(c.manifest)
-	if err := notes.WriteJSONL(c.paths.Manifest(), c.manifest); err != nil {
-		return err
-	}
-	return notes.WriteJSONL(c.paths.AudioQA(), c.checks)
+	return notes.WriteJSONL(c.paths.Manifest(), c.manifest)
 }
 
 func (c *clips) close() {
@@ -242,5 +183,5 @@ func (c *clips) shut() {
 	for _, client := range c.closers {
 		client.Close()
 	}
-	c.closers, c.speak, c.listen = nil, nil, nil
+	c.closers, c.speak = nil, nil
 }

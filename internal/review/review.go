@@ -12,12 +12,11 @@ import (
 type Item struct {
 	Index  int
 	Issues []notes.Issue
-	Audio  []notes.AudioCheck
 	Stale  bool
 }
 
 func (it Item) Len() int {
-	return len(it.Issues) + len(it.Audio)
+	return len(it.Issues)
 }
 
 func (it Item) Major() bool {
@@ -26,7 +25,7 @@ func (it Item) Major() bool {
 			return true
 		}
 	}
-	return len(it.Audio) > 0
+	return false
 }
 
 type Filter struct {
@@ -34,14 +33,10 @@ type Filter struct {
 	All   bool
 }
 
-func Items(ns []notes.Note, checks []notes.Check, audio []notes.AudioCheck, index map[string]string, filter Filter) ([]Item, int) {
+func Items(ns []notes.Note, checks []notes.Check, filter Filter) ([]Item, int) {
 	byID := map[string]notes.Check{}
 	for _, c := range checks {
 		byID[c.ID] = c
-	}
-	audioByID := map[string][]notes.AudioCheck{}
-	for _, a := range audio {
-		audioByID[a.ID] = append(audioByID[a.ID], a)
 	}
 	var items []Item
 	stale := 0
@@ -49,7 +44,7 @@ func Items(ns []notes.Note, checks []notes.Check, audio []notes.AudioCheck, inde
 		if !n.Authored() {
 			continue
 		}
-		it := Item{Index: i, Audio: deck.OpenAudio(n, audioByID[n.ID], index)}
+		it := Item{Index: i}
 		c, ok := byID[n.ID]
 		if deck.Current(n, c, ok) {
 			for _, is := range deck.OpenIssues(n, c) {
@@ -82,9 +77,6 @@ func Feedback(it Item) string {
 			fmt.Fprintf(&b, "- the %s: %s\n", is.Field, is.Detail)
 		}
 	}
-	for _, a := range it.Audio {
-		fmt.Fprintf(&b, "- speech recognition heard %q when the %s audio was played back\n", a.Transcript, strings.ToLower(strings.TrimSuffix(a.Field, "Audio")))
-	}
 	b.WriteString("If the card is wrong, correct it. If it is right but the example can be read another way without the vowel marks, rewrite the example so it reads only one way.")
 	return b.String()
 }
@@ -99,7 +91,7 @@ type Options struct {
 	Save     func([]notes.Note) error
 	Rewrite  func(ctx context.Context, n notes.Note, feedback string) (notes.Note, error)
 	Clip     func(n notes.Note, field string) string
-	Remake   func(ctx context.Context, n notes.Note, field string) (*notes.AudioCheck, error)
+	Remake   func(ctx context.Context, n notes.Note, field string) error
 	Remove   func(n notes.Note, field string) error
 	Voice    string
 	Voices   func(ctx context.Context) ([]VoiceOption, error)
