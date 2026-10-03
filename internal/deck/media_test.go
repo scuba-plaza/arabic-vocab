@@ -9,8 +9,10 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/scuba-plaza/arabic-vocab/internal/notes"
+	"github.com/scuba-plaza/arabic-vocab/internal/sound"
 )
 
 func TestGenerateAudioMakesEachClipOnceAndRemembersItWasInspected(t *testing.T) {
@@ -306,41 +308,135 @@ func TestGenerateAudioKeepsEarlierWorkWhenSynthesisFails(t *testing.T) {
 	}
 }
 
-func TestGenerateAudioStopsWhenAClipCannotBeInspected(t *testing.T) {
+func TestGenerateAudioReplacesAClipOnDiskThatCannotBeRead(t *testing.T) {
 	dir := t.TempDir()
-	n := clipNote("كِتَاب", 1)
-	os.WriteFile(clipPath(dir, wordOf(n)), []byte("broken"), 0o644)
+	a, b := clipNote("كِتَاب", 1), clipNote("قَلَم", 2)
+	os.WriteFile(clipPath(dir, wordOf(a)), []byte("broken"), 0o644)
 	st := newStudio()
-	res, err := GenerateAudio(context.Background(), []notes.Note{n}, nil, nil, st.speak, st.inspect, options(dir))
-	if err == nil || !strings.Contains(err.Error(), "inspecting") || !strings.Contains(err.Error(), "not an audio file") {
-		t.Fatalf("err = %v", err)
+	res, err := GenerateAudio(context.Background(), []notes.Note{a, b}, nil, nil, st.speak, st.inspect, options(dir))
+	if err != nil {
+		t.Fatalf("one broken clip must not stop the run: %v", err)
 	}
-	if res == nil || len(res.Failed) != 0 {
-		t.Errorf("an unreadable clip is an error of the run, not a flag: %+v", res)
+	if len(res.Failed) != 0 || res.Synthesized != 4 || len(res.Manifest) != 4 {
+		t.Errorf("a clip that cannot be read is made again: %+v", res)
 	}
-	if !exists(clipPath(dir, wordOf(n))) {
-		t.Error("a clip that cannot be read must not be deleted")
-	}
-
-	st.say(wordOf(n), "broken")
-	fresh := t.TempDir()
-	if _, err := GenerateAudio(context.Background(), []notes.Note{n}, nil, nil, st.speak, st.inspect, options(fresh)); err == nil || !strings.Contains(err.Error(), "inspecting the clip") {
-		t.Errorf("a new clip that cannot be read: %v", err)
-	}
-	if got := filesIn(t, fresh); len(got) != 0 {
-		t.Errorf("files left behind: %v", got)
+	if raw, _ := os.ReadFile(clipPath(dir, wordOf(a))); string(raw) != "sound" {
+		t.Errorf("the broken clip should have been replaced, found %q", raw)
 	}
 }
 
-func TestGenerateAudioRemovesLeftoversOfInterruptedRuns(t *testing.T) {
+func TestGenerateAudioReportsClipsThatStayUnreadableAndGoesOn(t *testing.T) {
 	dir := t.TempDir()
+	a, b, c := clipNote("كِتَاب", 1), clipNote("قَلَم", 2), clipNote("بَاب", 3)
+	os.WriteFile(clipPath(dir, wordOf(a)), []byte("broken"), 0o644)
+	st := newStudio()
+	st.say(wordOf(a), "broken")
+	st.say(sentenceOf(b), "broken")
+	res, err := GenerateAudio(context.Background(), []notes.Note{a, b, c}, nil, nil, st.speak, st.inspect, options(dir))
+	if err != nil {
+		t.Fatalf("unreadable clips are reported, they do not end the run: %v", err)
+	}
+	if len(res.Failed) != 2 || res.Silent() != 0 || res.Unreadable() != 2 {
+		t.Fatalf("failed = %+v", res.Failed)
+	}
+	first, second := res.Failed[0], res.Failed[1]
+	if first.ID != a.ID || first.Field != "WordAudio" || !first.Unreadable || second.ID != b.ID || second.Field != "ExampleAudio" {
+		t.Errorf("failures = %+v", res.Failed)
+	}
+	for _, f := range res.Failed {
+		if !errors.Is(f.Err, ErrUnreadable) || !strings.Contains(f.Err.Error(), dir) {
+			t.Errorf("the error should name the clip with its full path: %v", f.Err)
+		}
+	}
+	if res.Synthesized != 4 || len(res.Manifest) != 4 {
+		t.Errorf("the other clips are still made: %+v", res)
+	}
+	if len(res.Checks) != 0 {
+		t.Errorf("an unreadable clip is no flag for review, it is made again next time: %+v", res.Checks)
+	}
+	if got := filesIn(t, dir); len(got) != 4 || exists(clipPath(dir, wordOf(a))) {
+		t.Errorf("a clip that cannot be read must not stay on disk: %v", got)
+	}
+	for _, e := range res.Manifest {
+		if e.Text == wordOf(a) || e.Text == sentenceOf(b) {
+			t.Errorf("manifest still lists %+v", e)
+		}
+	}
+}
+
+func TestGenerateAudioStillStopsWhenTheContextIsCancelledWhileInspecting(t *testing.T) {
+	dir := t.TempDir()
+	n := clipNote("كِتَاب", 1)
+	os.WriteFile(clipPath(dir, wordOf(n)), []byte("sound"), 0o644)
+	ctx, cancel := context.WithCancel(context.Background())
+	inspect := func(ctx context.Context, path string) (sound.Result, error) {
+		cancel()
+		return sound.Result{}, ctx.Err()
+	}
+	if _, err := GenerateAudio(ctx, []notes.Note{n}, nil, nil, newStudio().speak, inspect, options(dir)); !errors.Is(err, context.Canceled) {
+		t.Errorf("err = %v", err)
+	}
+	if !exists(clipPath(dir, wordOf(n))) {
+		t.Error("a cancelled run must not delete clips")
+	}
+}
+
+func TestGenerateAudioDoesNotKeepAManifestEntryForAClipItRemoved(t *testing.T) {
+	dir := t.TempDir()
+	n := clipNote("كِتَاب", 1)
+	os.WriteFile(clipPath(dir, wordOf(n)), []byte("silent"), 0o644)
+	other := ManifestEntry{Text: "elsewhere", Voice: "v", Rate: 0.9, File: "ar-elsewhere.mp3", Inspected: true}
+	old := []ManifestEntry{{Text: wordOf(n), Voice: "v", Rate: 0.9, File: AudioFile(testVoice.Key(), wordOf(n))}, other}
+	quota := errors.New("rpc error: code = ResourceExhausted")
+	st := newStudio()
+	st.failing[wordOf(n)] = quota
+	res, err := GenerateAudio(context.Background(), []notes.Note{n}, old, nil, st.speak, st.inspect, options(dir))
+	if !errors.Is(err, quota) || res == nil {
+		t.Fatalf("err = %v", err)
+	}
+	if exists(clipPath(dir, wordOf(n))) {
+		t.Fatal("the silent clip should have been removed before it was made again")
+	}
+	if got := manifestFiles(res.Manifest); !slices.Equal(got, []string{other.File}) {
+		t.Errorf("an aborted run must not list a clip whose file is gone: %v", got)
+	}
+}
+
+func TestGenerateAudioHandlesMediaDirectoriesWithPatternCharacters(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "my [media] *clips*?")
+	os.MkdirAll(dir, 0o755)
+	old := time.Now().Add(-2 * LeftoverAge)
+	for _, name := range []string{".make-ar-1.mp3", ".trim-ar-2.mp3"} {
+		path := filepath.Join(dir, name)
+		os.WriteFile(path, []byte("x"), 0o644)
+		os.Chtimes(path, old, old)
+	}
+	os.WriteFile(filepath.Join(dir, "notes.txt"), []byte("x"), 0o644)
+	run(t, newStudio(), []notes.Note{clipNote("كِتَاب", 1)}, nil, nil, options(dir))
+	got := filesIn(t, dir)
+	if slices.Contains(got, ".make-ar-1.mp3") || slices.Contains(got, ".trim-ar-2.mp3") || !slices.Contains(got, "notes.txt") || len(got) != 3 {
+		t.Errorf("files = %v", got)
+	}
+}
+
+func TestGenerateAudioRemovesOldLeftoversButNotThoseOfARunInProgress(t *testing.T) {
+	dir := t.TempDir()
+	old := time.Now().Add(-2 * LeftoverAge)
 	for _, name := range []string{".make-ar-1.mp3", ".trim-ar-2.mp3", "notes.txt"} {
 		os.WriteFile(filepath.Join(dir, name), []byte("x"), 0o644)
 	}
+	for _, name := range []string{".make-ar-1.mp3", ".trim-ar-2.mp3"} {
+		os.Chtimes(filepath.Join(dir, name), old, old)
+	}
+	os.WriteFile(filepath.Join(dir, ".make-ar-fresh.mp3"), []byte("x"), 0o644)
+	os.Mkdir(filepath.Join(dir, ".make-dir"), 0o755)
 	run(t, newStudio(), []notes.Note{clipNote("كِتَاب", 1)}, nil, nil, options(dir))
 	got := filesIn(t, dir)
-	if slices.Contains(got, ".make-ar-1.mp3") || slices.Contains(got, ".trim-ar-2.mp3") || !slices.Contains(got, "notes.txt") {
-		t.Errorf("files = %v", got)
+	if slices.Contains(got, ".make-ar-1.mp3") || slices.Contains(got, ".trim-ar-2.mp3") {
+		t.Errorf("leftovers of an interrupted run should be removed: %v", got)
+	}
+	if !slices.Contains(got, ".make-ar-fresh.mp3") || !slices.Contains(got, "notes.txt") || !slices.Contains(got, ".make-dir") {
+		t.Errorf("a temporary file that is still being written, and everything else, stays: %v", got)
 	}
 }
 

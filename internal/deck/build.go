@@ -224,8 +224,8 @@ func BuildPackage(ns []notes.Note, checks, audio []notes.Check, opts BuildOption
 				tags = append(tags, "check::diacritics-minor")
 			}
 		}
-		if ac, ok := audioByID[n.ID]; ok && CurrentAudio(n, ac) {
-			for _, is := range OpenIssues(n, ac) {
+		if ac, ok := audioByID[n.ID]; ok {
+			for _, is := range OpenAudioIssues(n, ac) {
 				if !slices.Contains(tags, "check::audio") {
 					tags = append(tags, "check::audio")
 				}

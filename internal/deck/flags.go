@@ -28,3 +28,10 @@ func OpenIssues(n notes.Note, c notes.Check) []notes.Issue {
 	}
 	return out
 }
+
+func OpenAudioIssues(n notes.Note, c notes.Check) []notes.Issue {
+	if !CurrentAudio(n, c) {
+		return nil
+	}
+	return slices.Clone(c.Issues)
+}

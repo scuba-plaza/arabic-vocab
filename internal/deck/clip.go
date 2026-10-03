@@ -19,7 +19,10 @@ const (
 	KindSilent          = "silent"
 )
 
-var ErrSilent = errors.New("the clip has no sound")
+var (
+	ErrSilent     = errors.New("the clip has no sound")
+	ErrUnreadable = errors.New("the clip cannot be read")
+)
 
 type Inspector func(ctx context.Context, path string) (sound.Result, error)
 
@@ -44,6 +47,9 @@ func ClipLabel(field string) string {
 func MakeClip(ctx context.Context, speak Speaker, inspect Inspector, text, path string, attempts int) (ClipOutcome, error) {
 	attempts = max(attempts, 1)
 	var out ClipOutcome
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return out, err
+	}
 	file, err := os.CreateTemp(filepath.Dir(path), ".make-*"+filepath.Ext(path))
 	if err != nil {
 		return out, err
@@ -64,7 +70,11 @@ func MakeClip(ctx context.Context, speak Speaker, inspect Inspector, text, path 
 		}
 		res, err := inspect(ctx, tmp)
 		if err != nil {
-			return out, fmt.Errorf("inspecting the clip of %q: %w", text, err)
+			if ctx.Err() != nil {
+				return out, ctx.Err()
+			}
+			detail := strings.NewReplacer(tmp, path, filepath.Base(tmp), filepath.Base(path)).Replace(err.Error())
+			return out, fmt.Errorf("inspecting the clip of %q for %s: %w: %s", text, path, ErrUnreadable, detail)
 		}
 		if res.Silent {
 			continue
@@ -77,12 +87,36 @@ func MakeClip(ctx context.Context, speak Speaker, inspect Inspector, text, path 
 }
 
 func SilentIssue(field string, attempts int) notes.Issue {
+	tries := fmt.Sprintf("in all %d attempts", attempts)
+	if attempts == 1 {
+		tries = "on its only attempt"
+	}
 	return notes.Issue{
 		Field:    field,
 		Kind:     KindSilent,
 		Severity: notes.Major,
-		Detail:   fmt.Sprintf("The %s audio has no sound: it came back silent in all %s.", ClipLabel(field), attemptsText(attempts)),
+		Detail:   fmt.Sprintf("The %s audio has no sound: it came back silent %s.", ClipLabel(field), tries),
 	}
+}
+
+type ClipOwner struct {
+	Index int
+	Field string
+}
+
+func ClipOwners(ns []notes.Note, text string) []ClipOwner {
+	var out []ClipOwner
+	for i, n := range ns {
+		if !n.Authored() {
+			continue
+		}
+		for _, at := range AudioTexts(n) {
+			if at.Text == text {
+				out = append(out, ClipOwner{Index: i, Field: at.Field})
+			}
+		}
+	}
+	return out
 }
 
 func attemptsText(n int) string {

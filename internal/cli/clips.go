@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/scuba-plaza/arabic-tts/config"
 
@@ -18,21 +19,44 @@ import (
 	"github.com/scuba-plaza/arabic-vocab/internal/sound"
 )
 
+var lockWait = 10 * time.Second
+
 type clips struct {
 	mu       sync.Mutex
 	paths    *deck.Paths
 	voice    deck.Voice
 	manifest []deck.ManifestEntry
 	files    map[string]string
-	checks   []notes.Check
+	seen     time.Time
 	options  []review.VoiceOption
 	speak    deck.Speaker
 	inspect  deck.Inspector
 	closers  []io.Closer
 }
 
-func newClips(paths *deck.Paths, voice deck.Voice, manifest []deck.ManifestEntry, checks []notes.Check) *clips {
-	return &clips{paths: paths, voice: voice, manifest: manifest, files: deck.AudioIndex(manifest), checks: checks, inspect: sound.Trim}
+func newClips(paths *deck.Paths, voice deck.Voice, manifest []deck.ManifestEntry) *clips {
+	c := &clips{paths: paths, voice: voice, manifest: manifest, files: deck.AudioIndex(manifest), inspect: sound.Trim}
+	c.seen = modTime(paths.Manifest())
+	return c
+}
+
+func modTime(path string) time.Time {
+	if st, err := os.Stat(path); err == nil {
+		return st.ModTime()
+	}
+	return time.Time{}
+}
+
+func (c *clips) refresh() {
+	at := modTime(c.paths.Manifest())
+	if at.Equal(c.seen) {
+		return
+	}
+	manifest, err := notes.ReadJSONL[deck.ManifestEntry](c.paths.Manifest())
+	if err != nil {
+		return
+	}
+	c.manifest, c.files, c.seen = manifest, deck.AudioIndex(manifest), at
 }
 
 func clipText(n notes.Note, field string) (string, error) {
@@ -50,6 +74,7 @@ func (c *clips) path(n notes.Note, field string) string {
 		return ""
 	}
 	c.mu.Lock()
+	c.refresh()
 	file := c.files[text]
 	c.mu.Unlock()
 	if file == "" {
@@ -62,13 +87,70 @@ func (c *clips) path(n notes.Note, field string) string {
 	return path
 }
 
+func (c *clips) owners(text string, n notes.Note, field string) ([]notes.Note, []deck.ClipOwner) {
+	all, _ := notes.ReadJSONL[notes.Note](c.paths.Notes())
+	at := slices.IndexFunc(all, func(x notes.Note) bool { return x.ID == n.ID })
+	if at < 0 {
+		all = append(all, n)
+		at = len(all) - 1
+	} else {
+		all[at] = n
+	}
+	owners := deck.ClipOwners(all, text)
+	if self := (deck.ClipOwner{Index: at, Field: field}); !slices.Contains(owners, self) {
+		owners = append(owners, self)
+	}
+	return all, owners
+}
+
+func (c *clips) lock(ctx context.Context) (func(), error) {
+	return deck.LockAudio(ctx, c.paths.AudioLock(), lockWait)
+}
+
+func (c *clips) commit(n notes.Note, field, text string, entry *deck.ManifestEntry, silentAfter int) error {
+	manifest, err := notes.ReadJSONL[deck.ManifestEntry](c.paths.Manifest())
+	if err != nil {
+		return err
+	}
+	checks, err := notes.ReadJSONL[notes.Check](c.paths.AudioQA())
+	if err != nil {
+		return err
+	}
+	all, owners := c.owners(text, n, field)
+	manifest = slices.DeleteFunc(manifest, func(m deck.ManifestEntry) bool { return m.Text == text })
+	if entry != nil {
+		manifest = append(manifest, *entry)
+	}
+	for _, o := range owners {
+		if silentAfter > 0 {
+			checks = deck.WithAudioIssue(checks, all[o.Index], deck.SilentIssue(o.Field, silentAfter))
+		} else {
+			checks = deck.WithoutAudioIssue(checks, all[o.Index], o.Field)
+		}
+	}
+	if err := notes.WriteJSONL(c.paths.Manifest(), manifest); err != nil {
+		return err
+	}
+	if err := notes.WriteJSONL(c.paths.AudioQA(), checks); err != nil {
+		return err
+	}
+	c.manifest, c.files, c.seen = manifest, deck.AudioIndex(manifest), modTime(c.paths.Manifest())
+	return nil
+}
+
 func (c *clips) remove(n notes.Note, field string) error {
 	text, err := clipText(n, field)
 	if err != nil {
 		return err
 	}
+	unlock, err := c.lock(context.Background())
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.refresh()
 	file := c.files[text]
 	if file == "" {
 		file = deck.AudioFile(c.voice.Key(), text)
@@ -76,9 +158,7 @@ func (c *clips) remove(n notes.Note, field string) error {
 	if err := os.Remove(c.paths.MediaFile(file)); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	c.manifest = slices.DeleteFunc(c.manifest, func(m deck.ManifestEntry) bool { return m.Text == text })
-	c.checks = deck.WithoutAudioIssue(c.checks, n, field)
-	return c.save()
+	return c.commit(n, field, text, nil, 0)
 }
 
 func (c *clips) remake(ctx context.Context, n notes.Note, field string) (*notes.Issue, error) {
@@ -101,24 +181,37 @@ func (c *clips) remake(ctx context.Context, n notes.Note, field string) (*notes.
 	if out.Silent && had {
 		return nil, fmt.Errorf("%w; the clip you had was kept", deck.SilentError(out.Attempts))
 	}
-	if out.Silent {
-		issue := deck.SilentIssue(field, out.Attempts)
-		return &issue, c.settle(n, field, text, file, &issue)
+	unlock, err := c.lock(ctx)
+	if err != nil {
+		return nil, err
 	}
-	return nil, c.settle(n, field, text, file, nil)
-}
-
-func (c *clips) settle(n notes.Note, field, text, file string, issue *notes.Issue) error {
+	defer unlock()
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.manifest = slices.DeleteFunc(c.manifest, func(m deck.ManifestEntry) bool { return m.Text == text })
-	if issue != nil {
-		c.checks = deck.WithAudioIssue(c.checks, n, *issue)
-		return c.save()
+	if out.Silent {
+		issue := deck.SilentIssue(field, out.Attempts)
+		return &issue, c.commit(n, field, text, nil, out.Attempts)
 	}
-	c.manifest = append(c.manifest, deck.ManifestEntry{Text: text, Voice: c.voice.Name, Rate: c.voice.Rate, File: file, Inspected: true})
-	c.checks = deck.WithoutAudioIssue(c.checks, n, field)
-	return c.save()
+	entry := deck.ManifestEntry{Text: text, Voice: c.voice.Name, Rate: c.voice.Rate, File: file, Inspected: true}
+	return nil, c.commit(n, field, text, &entry, 0)
+}
+
+func (c *clips) flags(ns []notes.Note) map[string][]notes.Issue {
+	checks, err := notes.ReadJSONL[notes.Check](c.paths.AudioQA())
+	if err != nil {
+		return nil
+	}
+	byID := map[string]notes.Check{}
+	for _, check := range checks {
+		byID[check.ID] = check
+	}
+	out := map[string][]notes.Issue{}
+	for _, n := range ns {
+		if check, ok := byID[n.ID]; ok {
+			out[n.ID] = deck.OpenAudioIssues(n, check)
+		}
+	}
+	return out
 }
 
 func (c *clips) connect(ctx context.Context) (deck.Speaker, error) {
@@ -184,14 +277,6 @@ func (c *clips) setVoice(name string) error {
 	c.voice = settings.AudioVoice()
 	c.shut()
 	return nil
-}
-
-func (c *clips) save() error {
-	c.files = deck.AudioIndex(c.manifest)
-	if err := notes.WriteJSONL(c.paths.Manifest(), c.manifest); err != nil {
-		return err
-	}
-	return notes.WriteJSONL(c.paths.AudioQA(), c.checks)
 }
 
 func (c *clips) close() {

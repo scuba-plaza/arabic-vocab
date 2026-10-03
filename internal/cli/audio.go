@@ -3,7 +3,9 @@ package cli
 import (
 	"context"
 	"fmt"
+	"io"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -21,6 +23,7 @@ func newAudioCommand(paths *deck.Paths) *cobra.Command {
 		voice       string
 		rate        float64
 		concurrency int
+		dryRun      bool
 	)
 	cmd := &cobra.Command{
 		Use:   "audio",
@@ -34,14 +37,22 @@ func newAudioCommand(paths *deck.Paths) *cobra.Command {
 			"leaving a short pad. A clip that comes back with no sound at all is asked\n" +
 			"for again, up to three more times; if it stays silent it is not kept, the\n" +
 			"note is flagged for 'arabic-vocab review' and the next run tries it again.\n" +
-			"Clips made before this check are listened to once, on the first run.\n\n" +
+			"Clips made before this check are listened to once, on the first run, and cut\n" +
+			"in place without a backup: 'audio --dry-run' first listens to every clip you\n" +
+			"have and reports what would be cut or made again, without changing anything\n" +
+			"or needing Google.\n\n" +
 			"The voice and speaking rate come from deck.json in --deck-dir. --voice and\n" +
 			"--rate change them there, so later runs keep using them; compare voices\n" +
 			"with 'arabic-vocab voices'.\n\n" +
+			"Only one audio run, or one review at a time, may change the audio files; the\n" +
+			"others wait a few seconds and then say so.\n\n" +
 			"Needs ffmpeg.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := sound.Available(); err != nil {
+				if dryRun {
+					return usagef("%v; ffmpeg is needed to listen to the clips", err)
+				}
 				return usagef("%v; ffmpeg is needed to cut the silence off the clips", err)
 			}
 			ns, err := loadNotes(paths.Notes())
@@ -52,6 +63,9 @@ func newAudioCommand(paths *deck.Paths) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if dryRun {
+				return surveyClips(cmd, paths, ns, saved.AudioVoice(), concurrency)
+			}
 			settings := saved
 			if cmd.Flags().Changed("voice") {
 				settings.Voice = voice
@@ -60,7 +74,7 @@ func newAudioCommand(paths *deck.Paths) *cobra.Command {
 				settings.Rate = rate
 			}
 			remember := func(res *deck.AudioResult, runErr error) error {
-				if settings == saved || res == nil || runErr != nil && res.Synthesized == 0 {
+				if settings == saved || res == nil || (runErr != nil || len(res.Failed) > 0) && res.Synthesized == 0 {
 					return nil
 				}
 				infof("from now on the deck uses voice %s at rate %.2f (saved in %s)\n", settings.Voice, settings.Rate, paths.Settings())
@@ -71,6 +85,11 @@ func newAudioCommand(paths *deck.Paths) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
+			unlock, err := deck.LockAudio(ctx, paths.AudioLock(), lockWait)
+			if err != nil {
+				return err
+			}
+			defer unlock()
 			speak, ttsClient, err := newSpeaker(ctx, creds, settings.AudioVoice())
 			if err != nil {
 				return err
@@ -120,8 +139,15 @@ func newAudioCommand(paths *deck.Paths) *cobra.Command {
 				summary += "; silence cut off " + count(res.Trimmed, "clip", "clips")
 			}
 			infof("%s\n", summary)
-			if len(res.Failed) > 0 {
-				return fmt.Errorf("%s had no sound in any of %d attempts; they are flagged for 'arabic-vocab review', and the next 'arabic-vocab audio' tries them again", count(len(res.Failed), "clip", "clips"), deck.DefaultClipAttempts)
+			if silent, broken := res.Silent(), res.Unreadable(); silent+broken > 0 {
+				var parts []string
+				if silent > 0 {
+					parts = append(parts, fmt.Sprintf("%s had no sound in any of %d attempts and %s flagged for 'arabic-vocab review'", count(silent, "clip", "clips"), deck.DefaultClipAttempts, plural(silent, "is", "are")))
+				}
+				if broken > 0 {
+					parts = append(parts, fmt.Sprintf("%s could not be read after it was made", count(broken, "clip", "clips")))
+				}
+				return fmt.Errorf("%s; the next 'arabic-vocab audio' tries again", strings.Join(parts, " and "))
 			}
 			infof("next: arabic-vocab build\n")
 			return nil
@@ -131,8 +157,62 @@ func newAudioCommand(paths *deck.Paths) *cobra.Command {
 	f.StringVar(&voice, "voice", "", "use this voice from now on and save it in deck.json")
 	f.Float64Var(&rate, "rate", 0, "use this speaking rate (0.25 to 2.0) from now on and save it in deck.json")
 	f.IntVar(&concurrency, "concurrency", 4, "parallel synthesis requests")
+	f.BoolVar(&dryRun, "dry-run", false, "listen to the clips already made and report what would be cut or made again, changing nothing")
 	googleFlags(cmd)
 	return cmd
+}
+
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
+}
+
+func seconds(d time.Duration) string {
+	return fmt.Sprintf("%.1f s", d.Seconds())
+}
+
+const longestCuts = 10
+
+func surveyClips(cmd *cobra.Command, paths *deck.Paths, ns []notes.Note, voice deck.Voice, concurrency int) error {
+	survey, err := deck.SurveyAudio(cmd.Context(), ns, voice, paths.Media(), sound.Inspect, concurrency, func(done, total int) {
+		infof("\rlistened to %d/%d", done, total)
+	})
+	infof("\n")
+	if err != nil {
+		return err
+	}
+	printSurvey(cmd.OutOrStdout(), survey)
+	return nil
+}
+
+func printSurvey(w io.Writer, survey *deck.Survey) {
+	trimmed, silent, broken := survey.Trimmed(), survey.Silent(), survey.Unreadable()
+	fmt.Fprintf(w, "listened to %s", count(len(survey.Clips), "clip", "clips"))
+	if survey.Missing > 0 {
+		fmt.Fprintf(w, "; %s not made yet", count(survey.Missing, "more clip is", "more clips are"))
+	}
+	fmt.Fprintf(w, "\n  %d are fine as they are\n", survey.Untouched())
+	if len(trimmed) > 0 {
+		fmt.Fprintf(w, "  %d would be cut, %s of silence in all; the longest cuts:\n", len(trimmed), seconds(survey.Cut()))
+		for _, c := range trimmed[:min(len(trimmed), longestCuts)] {
+			fmt.Fprintf(w, "    %s  %d\t%s\t%s\t%s\n", seconds(c.Cut()), c.Position, c.ID, deck.ClipLabel(c.Field), c.Text)
+		}
+	}
+	if len(silent) > 0 {
+		fmt.Fprintf(w, "  %s no sound and would be made again:\n", count(len(silent), "clip has", "clips have"))
+		for _, c := range silent {
+			fmt.Fprintf(w, "    %d\t%s\t%s\n", c.Position, c.ID, deck.ClipLabel(c.Field))
+		}
+	}
+	if len(broken) > 0 {
+		fmt.Fprintf(w, "  %s be read and would be made again:\n", count(len(broken), "clip cannot", "clips cannot"))
+		for _, c := range broken {
+			fmt.Fprintf(w, "    %d\t%s\t%s\t%v\n", c.Position, c.ID, deck.ClipLabel(c.Field), c.Err)
+		}
+	}
+	fmt.Fprintln(w, "nothing was changed; 'arabic-vocab audio' makes these changes")
 }
 
 func pickVoices(all []tts.VoiceInfo) []string {

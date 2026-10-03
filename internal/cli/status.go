@@ -196,7 +196,7 @@ func (s deckStatus) print(w io.Writer, paths *deck.Paths) {
 		{"add", add, s.written > 0 && s.unfinished == 0},
 		{"check", check, s.checked && s.unchecked == 0},
 		{"review", flags, s.major == 0},
-		{"audio", audio, s.missing == 0},
+		{"audio", audio, s.missing == 0 && s.silent == 0},
 		{"build", build, s.pkgExists && !s.pkgStale},
 	} {
 		mark := " "

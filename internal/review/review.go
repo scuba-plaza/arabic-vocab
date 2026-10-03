@@ -61,8 +61,8 @@ func Items(ns []notes.Note, checks, audio []notes.Check, filter Filter) ([]Item,
 			it.Stale = true
 			stale++
 		}
-		if ac, ok := audioByID[n.ID]; ok && deck.CurrentAudio(n, ac) {
-			it.Issues = append(it.Issues, deck.OpenIssues(n, ac)...)
+		if ac, ok := audioByID[n.ID]; ok {
+			it.Issues = append(it.Issues, deck.OpenAudioIssues(n, ac)...)
 		}
 		if it.Len() > 0 || filter.All {
 			items = append(items, it)
@@ -102,6 +102,7 @@ type Options struct {
 	Clip     func(n notes.Note, field string) string
 	Remake   func(ctx context.Context, n notes.Note, field string) (*notes.Issue, error)
 	Remove   func(n notes.Note, field string) error
+	Flags    func(ns []notes.Note) map[string][]notes.Issue
 	Voice    string
 	Voices   func(ctx context.Context) ([]VoiceOption, error)
 	SetVoice func(name string) error

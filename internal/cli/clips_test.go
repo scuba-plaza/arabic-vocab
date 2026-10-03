@@ -85,9 +85,31 @@ func newClipFixture(t *testing.T, checks ...notes.Check) *clipFixture {
 	}
 	n := clipNote()
 	f := &clipFixture{t: t, paths: paths, voice: newScriptedVoice(), note: n, word: deck.AudioTexts(n)[0].Text, phrase: deck.AudioTexts(n)[1].Text}
-	f.clips = newClips(paths, deck.Voice{Name: "v", Rate: 0.9}, nil, checks)
+	f.setNotes(n)
+	if len(checks) > 0 {
+		f.setChecks(checks...)
+	}
+	f.clips = newClips(paths, deck.Voice{Name: "v", Rate: 0.9}, nil)
 	f.clips.speak, f.clips.inspect = f.voice.speak, listen
 	return f
+}
+
+func (f *clipFixture) setNotes(ns ...notes.Note) {
+	f.t.Helper()
+	if err := notes.WriteJSONL(f.paths.Notes(), ns); err != nil {
+		f.t.Fatal(err)
+	}
+}
+
+func (f *clipFixture) setChecks(checks ...notes.Check) {
+	f.t.Helper()
+	if err := notes.WriteJSONL(f.paths.AudioQA(), checks); err != nil {
+		f.t.Fatal(err)
+	}
+}
+
+func flaggedNote(n notes.Note, field string) notes.Check {
+	return notes.Check{ID: n.ID, Version: deck.AudioCheckVersion, Digest: n.Digest(), Issues: []notes.Issue{deck.SilentIssue(field, 4)}}
 }
 
 func (f *clipFixture) file(text string) string {
@@ -117,8 +139,7 @@ func (f *clipFixture) flagged(field string) notes.Check {
 }
 
 func TestRemakeStoresTheClipAndClearsItsFlag(t *testing.T) {
-	f := newClipFixture(t)
-	f.clips.checks = []notes.Check{f.flagged("ExampleAudio")}
+	f := newClipFixture(t, flaggedNote(clipNote(), "ExampleAudio"))
 	issue, err := f.clips.remake(context.Background(), f.note, "ExampleAudio")
 	if err != nil || issue != nil {
 		t.Fatalf("issue %+v, err %v", issue, err)
@@ -185,17 +206,16 @@ func TestRemakeThatStaysSilentKeepsTheClipYouHad(t *testing.T) {
 }
 
 func TestRemakeReportsErrorsWithoutTouchingTheFlags(t *testing.T) {
-	f := newClipFixture(t)
-	f.clips.checks = []notes.Check{f.flagged("WordAudio")}
+	f := newClipFixture(t, flaggedNote(clipNote(), "WordAudio"))
 	quota := errors.New("rpc error: code = ResourceExhausted")
 	f.voice.failing[f.word] = quota
 	if issue, err := f.clips.remake(context.Background(), f.note, "WordAudio"); issue != nil || !errors.Is(err, quota) {
 		t.Fatalf("issue %+v, err %v", issue, err)
 	}
-	if len(f.clips.checks) != 1 {
-		t.Errorf("flags = %+v", f.clips.checks)
+	if got := f.storedChecks(); len(got) != 1 || len(got[0].Issues) != 1 || got[0].Issues[0].Field != "WordAudio" {
+		t.Errorf("flags = %+v", got)
 	}
-	if _, err := os.Stat(f.paths.AudioQA()); err == nil {
+	if _, err := os.Stat(f.paths.Manifest()); err == nil {
 		t.Error("nothing should have been written")
 	}
 	if _, err := f.clips.remake(context.Background(), f.note, "FormsAudio"); err == nil || !strings.Contains(err.Error(), "has no forms to speak") {
@@ -208,7 +228,7 @@ func TestRemovingAClipDropsItsFileEntryAndFlag(t *testing.T) {
 	if _, err := f.clips.remake(context.Background(), f.note, "WordAudio"); err != nil {
 		t.Fatal(err)
 	}
-	f.clips.checks = []notes.Check{f.flagged("WordAudio")}
+	f.setChecks(f.flagged("WordAudio"))
 	if err := f.clips.remove(f.note, "WordAudio"); err != nil {
 		t.Fatal(err)
 	}
@@ -230,7 +250,7 @@ func TestRemakingOneClipLeavesTheFlagOfAnotherAlone(t *testing.T) {
 	f := newClipFixture(t)
 	check := f.flagged("ExampleAudio")
 	check.Issues = append(check.Issues, deck.SilentIssue("WordAudio", 4))
-	f.clips.checks = []notes.Check{check}
+	f.setChecks(check)
 	if _, err := f.clips.remake(context.Background(), f.note, "WordAudio"); err != nil {
 		t.Fatal(err)
 	}
@@ -250,8 +270,7 @@ func TestRemakeNeedsFFmpegBeforeAnythingIsSpoken(t *testing.T) {
 }
 
 func TestClipsCanBeRemadeAtTheSameTime(t *testing.T) {
-	f := newClipFixture(t)
-	f.clips.checks = []notes.Check{f.flagged("ExampleAudio")}
+	f := newClipFixture(t, flaggedNote(clipNote(), "ExampleAudio"))
 	var wg sync.WaitGroup
 	for _, field := range []string{"WordAudio", "ExampleAudio", "WordAudio", "ExampleAudio"} {
 		wg.Add(1)
@@ -273,5 +292,167 @@ func TestClipsCanBeRemadeAtTheSameTime(t *testing.T) {
 	slices.Sort(want)
 	if !slices.Equal(texts, want) || len(f.storedChecks()) != 0 {
 		t.Errorf("manifest %v, checks %+v", texts, f.storedChecks())
+	}
+}
+
+func (f *clipFixture) sharing() notes.Note {
+	other := clipNote()
+	other.ID, other.Position, other.Arabic = "قَلَم", 2, "قَلَم"
+	other.Example = f.note.Example
+	return other
+}
+
+func TestRemakeCreatesTheMediaDirectoryWhenNothingHasMadeItYet(t *testing.T) {
+	f := newClipFixture(t)
+	if err := os.RemoveAll(f.paths.Media()); err != nil {
+		t.Fatal(err)
+	}
+	if issue, err := f.clips.remake(context.Background(), f.note, "WordAudio"); err != nil || issue != nil {
+		t.Fatalf("a review before the first 'audio' run must be able to make clips: %+v, %v", issue, err)
+	}
+	if raw, _ := os.ReadFile(f.file(f.word)); string(raw) != "sound" {
+		t.Errorf("clip = %q", raw)
+	}
+	if got := f.storedManifest(); len(got) != 1 {
+		t.Errorf("manifest = %+v", got)
+	}
+}
+
+func TestRemakingASharedClipClearsTheFlagOfEveryNoteThatPlaysIt(t *testing.T) {
+	f := newClipFixture(t)
+	other := f.sharing()
+	f.setNotes(f.note, other)
+	f.setChecks(flaggedNote(f.note, "ExampleAudio"), flaggedNote(other, "ExampleAudio"))
+	if issue, err := f.clips.remake(context.Background(), f.note, "ExampleAudio"); err != nil || issue != nil {
+		t.Fatalf("issue %+v, err %v", issue, err)
+	}
+	if got := f.storedChecks(); len(got) != 0 {
+		t.Errorf("both notes play the clip that was made again, so neither is flagged any more: %+v", got)
+	}
+	flags := f.clips.flags([]notes.Note{f.note, other})
+	if len(flags[f.note.ID]) != 0 || len(flags[other.ID]) != 0 {
+		t.Errorf("flags = %+v", flags)
+	}
+}
+
+func TestASharedClipThatStaysSilentFlagsEveryNoteUnderItsOwnFieldName(t *testing.T) {
+	f := newClipFixture(t)
+	other := clipNote()
+	other.ID, other.Position, other.Arabic, other.Example = "x", 2, f.phrase, "<b>قَلَمٌ</b>."
+	f.setNotes(f.note, other)
+	f.voice.kinds[f.phrase] = []string{"silent"}
+	issue, err := f.clips.remake(context.Background(), f.note, "ExampleAudio")
+	if err != nil || issue == nil || issue.Field != "ExampleAudio" {
+		t.Fatalf("issue %+v, err %v", issue, err)
+	}
+	byID := map[string]notes.Check{}
+	for _, c := range f.storedChecks() {
+		byID[c.ID] = c
+	}
+	if len(byID) != 2 || byID[f.note.ID].Issues[0].Field != "ExampleAudio" || byID[other.ID].Issues[0].Field != "WordAudio" {
+		t.Fatalf("every owner is flagged under the field it plays the clip in: %+v", byID)
+	}
+	if !strings.Contains(byID[other.ID].Issues[0].Detail, "The word audio has no sound") || !strings.Contains(byID[f.note.ID].Issues[0].Detail, "The sentence audio has no sound") {
+		t.Errorf("details = %q / %q", byID[other.ID].Issues[0].Detail, byID[f.note.ID].Issues[0].Detail)
+	}
+}
+
+func TestRemovingASharedClipClearsEveryFlagForIt(t *testing.T) {
+	f := newClipFixture(t)
+	other := f.sharing()
+	f.setNotes(f.note, other)
+	if _, err := f.clips.remake(context.Background(), f.note, "ExampleAudio"); err != nil {
+		t.Fatal(err)
+	}
+	f.setChecks(flaggedNote(f.note, "ExampleAudio"), flaggedNote(other, "ExampleAudio"))
+	if err := f.clips.remove(f.note, "ExampleAudio"); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.storedChecks(); len(got) != 0 {
+		t.Errorf("checks = %+v", got)
+	}
+}
+
+func TestReviewBuildsOnWhatAudioSavedMeanwhile(t *testing.T) {
+	f := newClipFixture(t)
+	other := clipNote()
+	other.ID, other.Position, other.Arabic, other.Example = "قَلَم", 2, "قَلَم", "<b>قَلَمٌ</b>."
+	f.setNotes(f.note, other)
+	elsewhere := deck.ManifestEntry{Text: "made by audio", Voice: "v", Rate: 0.9, File: "ar-audio.mp3", Inspected: true}
+	if err := notes.WriteJSONL(f.paths.Manifest(), []deck.ManifestEntry{elsewhere}); err != nil {
+		t.Fatal(err)
+	}
+	f.setChecks(flaggedNote(other, "WordAudio"))
+	if _, err := f.clips.remake(context.Background(), f.note, "WordAudio"); err != nil {
+		t.Fatal(err)
+	}
+	manifest := f.storedManifest()
+	if len(manifest) != 2 || manifest[0].Text != "made by audio" || manifest[1].Text != f.word {
+		t.Errorf("a remake must not drop what another run saved: %+v", manifest)
+	}
+	if got := f.storedChecks(); len(got) != 1 || got[0].ID != other.ID {
+		t.Errorf("flags saved by another run must survive: %+v", got)
+	}
+}
+
+func TestReviewSeesClipsThatAudioMadeAfterItStarted(t *testing.T) {
+	f := newClipFixture(t)
+	if got := f.clips.path(f.note, "WordAudio"); got != "" {
+		t.Fatalf("path = %q", got)
+	}
+	file := deck.AudioFile(f.clips.voice.Key(), f.word)
+	if err := os.WriteFile(f.paths.MediaFile(file), []byte("sound"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := notes.WriteJSONL(f.paths.Manifest(), []deck.ManifestEntry{{Text: f.word, Voice: "v", Rate: 0.9, File: file, Inspected: true}}); err != nil {
+		t.Fatal(err)
+	}
+	future := time.Now().Add(time.Minute)
+	os.Chtimes(f.paths.Manifest(), future, future)
+	if got := f.clips.path(f.note, "WordAudio"); got != f.file(f.word) {
+		t.Errorf("the review page should play the clip made by 'audio': %q", got)
+	}
+}
+
+func TestClipChangesWaitForAnAudioRunAndSayWhenItTakesTooLong(t *testing.T) {
+	f := newClipFixture(t)
+	shortWait := 150 * time.Millisecond
+	was := lockWait
+	lockWait = shortWait
+	defer func() { lockWait = was }()
+	unlock, err := deck.LockAudio(context.Background(), f.paths.AudioLock(), 0)
+	if err != nil {
+		t.Skip(err)
+	}
+	if _, err := f.clips.remake(context.Background(), f.note, "WordAudio"); !errors.Is(err, deck.ErrBusy) {
+		t.Errorf("remake while audio runs: %v", err)
+	}
+	if err := f.clips.remove(f.note, "WordAudio"); !errors.Is(err, deck.ErrBusy) {
+		t.Errorf("remove while audio runs: %v", err)
+	}
+	if got := f.storedManifest(); len(got) != 0 {
+		t.Errorf("nothing may be saved while another run holds the lock: %+v", got)
+	}
+	unlock()
+	if _, err := f.clips.remake(context.Background(), f.note, "WordAudio"); err != nil {
+		t.Errorf("remake after the lock was released: %v", err)
+	}
+}
+
+func TestClipsListTheSilentFlagsOfCurrentNotesOnly(t *testing.T) {
+	f := newClipFixture(t)
+	changed := f.note
+	changed.Example = "هٰذَا <b>كِتَابٌ</b> جَدِيدٌ."
+	f.setChecks(flaggedNote(f.note, "WordAudio"))
+	flags := f.clips.flags([]notes.Note{f.note})
+	if len(flags[f.note.ID]) != 1 || flags[f.note.ID][0].Field != "WordAudio" {
+		t.Errorf("flags = %+v", flags)
+	}
+	if flags := f.clips.flags([]notes.Note{changed}); len(flags[changed.ID]) != 0 {
+		t.Errorf("a flag about text that changed is not a flag: %+v", flags)
+	}
+	f.note.Reviewed = []string{"WordAudio:silent"}
+	if flags := f.clips.flags([]notes.Note{f.note}); len(flags[f.note.ID]) != 1 {
+		t.Errorf("a silent flag cannot be reviewed away: %+v", flags)
 	}
 }

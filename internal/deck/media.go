@@ -2,12 +2,14 @@ package deck
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 
@@ -42,10 +44,25 @@ type AudioOptions struct {
 }
 
 type ClipFailure struct {
-	ID       string
-	Position int
-	Field    string
-	Err      error
+	ID         string
+	Position   int
+	Field      string
+	Unreadable bool
+	Err        error
+}
+
+func (r *AudioResult) Silent() int {
+	n := 0
+	for _, f := range r.Failed {
+		if !f.Unreadable {
+			n++
+		}
+	}
+	return n
+}
+
+func (r *AudioResult) Unreadable() int {
+	return len(r.Failed) - r.Silent()
 }
 
 type AudioResult struct {
@@ -101,11 +118,20 @@ func (m *manifestSet) list() []ManifestEntry {
 	return out
 }
 
-func clearLeftovers(dir string) {
-	for _, pattern := range []string{".make-*", ".trim-*"} {
-		stale, _ := filepath.Glob(filepath.Join(dir, pattern))
-		for _, path := range stale {
-			os.Remove(path)
+const LeftoverAge = 30 * time.Minute
+
+func clearLeftovers(dir string, now time.Time) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || !strings.HasPrefix(name, ".make-") && !strings.HasPrefix(name, ".trim-") {
+			continue
+		}
+		if info, err := e.Info(); err == nil && now.Sub(info.ModTime()) >= LeftoverAge {
+			os.Remove(filepath.Join(dir, name))
 		}
 	}
 }
@@ -133,7 +159,7 @@ func GenerateAudio(ctx context.Context, ns []notes.Note, previous []ManifestEntr
 	if err := os.MkdirAll(opts.MediaDir, 0o755); err != nil {
 		return nil, err
 	}
-	clearLeftovers(opts.MediaDir)
+	clearLeftovers(opts.MediaDir, time.Now())
 
 	var authored []notes.Note
 	for _, n := range ns {
@@ -186,13 +212,17 @@ func GenerateAudio(ctx context.Context, ns []notes.Note, previous []ManifestEntr
 
 	var mu sync.Mutex
 	done := 0
-	finish := func(t *clipTask, silent bool, attempts int) {
+	finish := func(t *clipTask, attempts int, unreadable error) {
 		for _, o := range t.owners {
-			if silent {
-				checks = WithAudioIssue(checks, ns[o.note], SilentIssue(o.field, attempts))
-				res.Failed = append(res.Failed, ClipFailure{ID: ns[o.note].ID, Position: ns[o.note].Position, Field: o.field, Err: SilentError(attempts)})
-			} else {
-				checks = WithoutAudioIssue(checks, ns[o.note], o.field)
+			n := ns[o.note]
+			switch {
+			case unreadable != nil:
+				res.Failed = append(res.Failed, ClipFailure{ID: n.ID, Position: n.Position, Field: o.field, Unreadable: true, Err: unreadable})
+			case attempts > 0:
+				checks = WithAudioIssue(checks, n, SilentIssue(o.field, attempts))
+				res.Failed = append(res.Failed, ClipFailure{ID: n.ID, Position: n.Position, Field: o.field, Err: SilentError(attempts)})
+			default:
+				checks = WithoutAudioIssue(checks, n, o.field)
 			}
 		}
 		done++
@@ -211,10 +241,10 @@ func GenerateAudio(ctx context.Context, ns []notes.Note, previous []ManifestEntr
 			path := MediaPath(opts.MediaDir, t.file)
 			if t.onDisk {
 				r, err := inspect(gctx, path)
-				if err != nil {
-					return fmt.Errorf("inspecting %s: %w", t.file, err)
+				if err != nil && gctx.Err() != nil {
+					return gctx.Err()
 				}
-				if !r.Silent {
+				if err == nil && !r.Silent {
 					mu.Lock()
 					defer mu.Unlock()
 					manifest.put(entry(t))
@@ -222,22 +252,29 @@ func GenerateAudio(ctx context.Context, ns []notes.Note, previous []ManifestEntr
 					if r.Trimmed() {
 						res.Trimmed++
 					}
-					finish(t, false, 0)
+					finish(t, 0, nil)
 					return nil
 				}
-				if err := os.Remove(path); err != nil {
+				mu.Lock()
+				manifest.drop(t.file)
+				mu.Unlock()
+				if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 					return err
 				}
 			}
 			out, err := MakeClip(gctx, speak, inspect, t.text, path, opts.Attempts)
 			mu.Lock()
 			defer mu.Unlock()
-			if err != nil {
-				return err
-			}
-			if out.Silent {
+			switch {
+			case errors.Is(err, ErrUnreadable):
 				manifest.drop(t.file)
-				finish(t, true, out.Attempts)
+				finish(t, 0, err)
+				return nil
+			case err != nil:
+				return err
+			case out.Silent:
+				manifest.drop(t.file)
+				finish(t, out.Attempts, nil)
 				return nil
 			}
 			manifest.put(entry(t))
@@ -245,7 +282,7 @@ func GenerateAudio(ctx context.Context, ns []notes.Note, previous []ManifestEntr
 			if out.Trimmed {
 				res.Trimmed++
 			}
-			finish(t, false, out.Attempts)
+			finish(t, 0, nil)
 			return nil
 		})
 	}

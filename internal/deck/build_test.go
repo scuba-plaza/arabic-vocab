@@ -207,8 +207,8 @@ func TestBuildTagsClipsThatHaveNoSound(t *testing.T) {
 	if !slices.Contains(got[a.ID].Tags, "check::audio") || !strings.Contains(got[a.ID].Check, "The sentence audio has no sound") {
 		t.Errorf("a: %+v", got[a.ID])
 	}
-	if slices.Contains(got[b.ID].Tags, "check::audio") || strings.Contains(got[b.ID].Check, "no sound") {
-		t.Errorf("a reviewed clip should not be tagged: %+v", got[b.ID])
+	if !slices.Contains(got[b.ID].Tags, "check::audio") || !strings.Contains(got[b.ID].Check, "no sound") {
+		t.Errorf("a silent clip cannot be reviewed away, only made again: %+v", got[b.ID])
 	}
 	if slices.Contains(got[c.ID].Tags, "check::audio") {
 		t.Errorf("a flag about text that changed should not count: %+v", got[c.ID])
@@ -222,7 +222,7 @@ func TestBuildTagsClipsThatHaveNoSound(t *testing.T) {
 	if strings.Count(got[e.ID].Check, "no sound") != 2 {
 		t.Errorf("each silent clip gets its own line: %q", got[e.ID].Check)
 	}
-	if summary.Tagged["check::audio"] != 3 {
+	if summary.Tagged["check::audio"] != 4 {
 		t.Errorf("tagged = %v", summary.Tagged)
 	}
 }

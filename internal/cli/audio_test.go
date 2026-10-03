@@ -29,6 +29,9 @@ func (nopCloser) Close() error { return nil }
 func needFFmpeg(t *testing.T) {
 	t.Helper()
 	if err := sound.Available(); err != nil {
+		if os.Getenv("REQUIRE_FFMPEG") != "" {
+			t.Fatalf("REQUIRE_FFMPEG is set: %v", err)
+		}
 		t.Skip(err)
 	}
 }
@@ -251,7 +254,7 @@ func TestAudioFlagsAClipThatStaysSilentAndSaysSo(t *testing.T) {
 	d.voice.script[d.sentence(1)] = []string{"silent"}
 
 	out, err := d.audio()
-	if err == nil || !strings.Contains(err.Error(), "1 clip had no sound in any of 4 attempts") || !strings.Contains(err.Error(), "'arabic-vocab review'") || !strings.Contains(err.Error(), "tries them again") {
+	if err == nil || !strings.Contains(err.Error(), "1 clip had no sound in any of 4 attempts and is flagged for 'arabic-vocab review'") || !strings.Contains(err.Error(), "tries again") {
 		t.Fatalf("err = %v", err)
 	}
 	if want := "2\tقَلَم\tsentence\tthe clip has no sound after 4 attempts\n"; out != want {
@@ -438,13 +441,19 @@ func TestStatusCountsSilentClipsApartFromMissingOnes(t *testing.T) {
 		t.Fatalf("status = %+v, next %q", s, s.next())
 	}
 
+	var printed bytes.Buffer
+	s.print(&printed, paths)
+	if strings.Contains(printed.String(), "✓ audio") || !strings.Contains(printed.String(), "1 clip came back silent and wait for review") {
+		t.Errorf("the audio step is not done while a clip is silent:\n%s", printed.String())
+	}
+
 	n.Reviewed = []string{"ExampleAudio:silent"}
 	if err := notes.WriteJSONL(paths.Notes(), []notes.Note{n}); err != nil {
 		t.Fatal(err)
 	}
 	s = read()
-	if s.major != 0 || s.silent != 1 || s.missing != 0 || s.next() != "build" {
-		t.Errorf("once reviewed, a silent clip must not keep sending you back to audio: %+v, next %q", s, s.next())
+	if s.major != 1 || s.silent != 1 || s.missing != 0 || s.next() != "review" {
+		t.Errorf("a silent clip cannot be reviewed away, only made again: %+v, next %q", s, s.next())
 	}
 
 	flag.Digest = "an older text"
@@ -453,5 +462,216 @@ func TestStatusCountsSilentClipsApartFromMissingOnes(t *testing.T) {
 	}
 	if s = read(); s.silent != 0 || s.missing != 1 || s.next() != "audio" {
 		t.Errorf("a flag about older text no longer explains the missing clip: %+v, next %q", s, s.next())
+	}
+}
+
+func (d *audioDeck) preload(kinds map[string]string) {
+	d.t.Helper()
+	if err := os.MkdirAll(d.paths.Media(), 0o755); err != nil {
+		d.t.Fatal(err)
+	}
+	for text, kind := range kinds {
+		if err := os.WriteFile(d.clip(text), d.voice.clips[kind], 0o644); err != nil {
+			d.t.Fatal(err)
+		}
+	}
+}
+
+func (d *audioDeck) snapshot() map[string]string {
+	d.t.Helper()
+	out := map[string]string{}
+	err := filepath.WalkDir(d.dir, func(path string, e os.DirEntry, err error) error {
+		if err != nil || e.IsDir() {
+			return err
+		}
+		raw, err := os.ReadFile(path)
+		out[strings.TrimPrefix(path, d.dir)] = string(raw)
+		return err
+	})
+	if err != nil {
+		d.t.Fatal(err)
+	}
+	return out
+}
+
+func TestAudioDryRunReportsWhatWouldChangeAndChangesNothing(t *testing.T) {
+	d := newAudioDeck(t)
+	d.preload(map[string]string{d.word(0): "clean", d.sentence(0): "padded", d.word(1): "silent"})
+	before := d.snapshot()
+
+	out, err := d.run("audio", "--dry-run")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"listened to 3 clips; 1 more clip is not made yet",
+		"1 are fine as they are",
+		"1 would be cut, 3.8 s of silence in all; the longest cuts:",
+		"3.8 s  1\tكِتَاب\tsentence\t",
+		"1 clip has no sound and would be made again:",
+		"2\tقَلَم\tword",
+		"nothing was changed; 'arabic-vocab audio' makes these changes",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("the report lacks %q:\n%s", want, out)
+		}
+	}
+	after := d.snapshot()
+	if len(before) != len(after) {
+		t.Errorf("files before %d, after %d", len(before), len(after))
+	}
+	for name, content := range before {
+		if after[name] != content {
+			t.Errorf("%s was changed", name)
+		}
+	}
+	if len(d.voice.calls) != 0 {
+		t.Errorf("a dry run speaks nothing: %v", d.voice.calls)
+	}
+	if _, err := os.Stat(d.paths.AudioLock()); err == nil {
+		t.Error("a dry run changes nothing, so it needs no lock")
+	}
+}
+
+func TestAudioDryRunNeedsNeitherGoogleNorAQuietDeck(t *testing.T) {
+	d := newAudioDeck(t)
+	d.preload(map[string]string{d.word(0): "clean"})
+	old := newSpeaker
+	newSpeaker = func(context.Context, config.Credentials, deck.Voice) (deck.Speaker, io.Closer, error) {
+		t.Error("a dry run must not connect to Google")
+		return nil, nil, errors.New("no")
+	}
+	defer func() { newSpeaker = old }()
+	t.Setenv("GOOGLE_APPLICATION_CREDENTIALS", "")
+	if _, err := d.run("audio", "--dry-run"); err != nil {
+		t.Fatal(err)
+	}
+	unlock, err := deck.LockAudio(context.Background(), d.paths.AudioLock(), 0)
+	if err != nil {
+		t.Skip(err)
+	}
+	defer unlock()
+	if _, err := d.run("audio", "--dry-run"); err != nil {
+		t.Errorf("a dry run may look while another run works: %v", err)
+	}
+}
+
+func TestAudioDryRunNeedsFFmpeg(t *testing.T) {
+	d := newAudioDeck(t)
+	t.Setenv("PATH", t.TempDir())
+	_, err := d.run("audio", "--dry-run")
+	var usage usageError
+	if !errors.As(err, &usage) || !strings.Contains(err.Error(), "ffmpeg is needed to listen to the clips") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestAudioDryRunWithNothingToCut(t *testing.T) {
+	d := newAudioDeck(t)
+	d.preload(map[string]string{d.word(0): "clean", d.sentence(0): "clean", d.word(1): "clean", d.sentence(1): "clean"})
+	out, err := d.run("audio", "--dry-run")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "listened to 4 clips\n  4 are fine as they are\n") || strings.Contains(out, "would be") {
+		t.Errorf("report:\n%s", out)
+	}
+}
+
+func TestAudioWaitsBrieflyForAnotherRunAndThenSaysSo(t *testing.T) {
+	d := newAudioDeck(t)
+	was := lockWait
+	lockWait = 150 * time.Millisecond
+	defer func() { lockWait = was }()
+	unlock, err := deck.LockAudio(context.Background(), d.paths.AudioLock(), 0)
+	if err != nil {
+		t.Skip(err)
+	}
+	_, err = d.audio()
+	if !errors.Is(err, deck.ErrBusy) {
+		t.Fatalf("err = %v", err)
+	}
+	if len(d.voice.calls) != 0 || len(d.manifest()) != 0 {
+		t.Error("nothing may be made while another run holds the lock")
+	}
+	unlock()
+	if _, err := d.audio(); err != nil {
+		t.Fatalf("after the other run finished: %v", err)
+	}
+}
+
+func TestAudioDoesNotSaveAVoiceThatOnlyProducesSilence(t *testing.T) {
+	d := newAudioDeck(t)
+	for _, text := range []string{d.word(0), d.sentence(0), d.word(1), d.sentence(1)} {
+		d.voice.script[text] = []string{"silent"}
+	}
+	_, err := d.run("audio", "--credentials", d.creds, "--voice", "ar-XA-Wavenet-A")
+	if err == nil || !strings.Contains(err.Error(), "4 clips had no sound") {
+		t.Fatalf("err = %v", err)
+	}
+	if saved, _ := deck.LoadSettings(d.paths.Settings()); saved.Voice == "ar-XA-Wavenet-A" {
+		t.Error("a voice that only produced silence must not become the deck's voice")
+	}
+	if _, statErr := os.Stat(d.paths.Settings()); statErr == nil {
+		t.Error("deck.json should be left alone")
+	}
+
+	d.voice.script[d.sentence(1)] = []string{"padded"}
+	d.voice.calls = map[string]int{}
+	_, err = d.run("audio", "--credentials", d.creds, "--voice", "ar-XA-Wavenet-A")
+	if err == nil {
+		t.Fatal("three clips are still silent")
+	}
+	if saved, _ := deck.LoadSettings(d.paths.Settings()); saved.Voice != "ar-XA-Wavenet-A" {
+		t.Errorf("a voice that speaks at least some clips is kept: %q", saved.Voice)
+	}
+}
+
+func TestAudioReplacesAClipItCannotReadAndReportsOnesThatStayBroken(t *testing.T) {
+	d := newAudioDeck(t)
+	d.voice.clips["broken"] = bytes.Repeat([]byte("not audio at all "), 100)
+	if err := os.MkdirAll(d.paths.Media(), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(d.clip(d.word(0)), d.voice.clips["broken"], 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := d.audio(); err != nil || out != "" {
+		t.Fatalf("a clip on disk that cannot be read is made again: out %q, err %v", out, err)
+	}
+	if got := d.manifest(); len(got) != 4 {
+		t.Fatalf("manifest = %+v", got)
+	}
+	if res, err := sound.Inspect(context.Background(), d.clip(d.word(0))); err != nil || res.Silent {
+		t.Errorf("the replacement should be readable: %+v, %v", res, err)
+	}
+
+	d2 := newAudioDeck(t)
+	d2.voice.clips["broken"] = bytes.Repeat([]byte("not audio at all "), 100)
+	d2.voice.script[d2.sentence(1)] = []string{"broken"}
+	out, err := d2.audio()
+	if err == nil || !strings.Contains(err.Error(), "1 clip could not be read after it was made") || !strings.Contains(err.Error(), "tries again") {
+		t.Fatalf("err = %v", err)
+	}
+	if !strings.HasPrefix(out, "2\tقَلَم\tsentence\t") || !strings.Contains(out, d2.paths.Media()) || strings.Contains(out, ".make-") {
+		t.Errorf("the failure should name the clip with its full path: %q", out)
+	}
+	if got := d2.manifest(); len(got) != 3 {
+		t.Errorf("the other clips are still made: %+v", got)
+	}
+	if got := d2.checks(); len(got) != 0 {
+		t.Errorf("an unreadable clip is not flagged for review: %+v", got)
+	}
+}
+
+func TestAudioReportsSilentAndUnreadableClipsTogether(t *testing.T) {
+	d := newAudioDeck(t)
+	d.voice.clips["broken"] = bytes.Repeat([]byte("not audio at all "), 100)
+	d.voice.script[d.word(0)] = []string{"silent"}
+	d.voice.script[d.sentence(1)] = []string{"broken"}
+	_, err := d.audio()
+	want := "1 clip had no sound in any of 4 attempts and is flagged for 'arabic-vocab review' and 1 clip could not be read after it was made; the next 'arabic-vocab audio' tries again"
+	if err == nil || err.Error() != want {
+		t.Errorf("err = %v\nwant %s", err, want)
 	}
 }

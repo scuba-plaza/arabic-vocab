@@ -3,6 +3,7 @@ package deck
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -10,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/scuba-plaza/arabic-vocab/internal/notes"
+	"github.com/scuba-plaza/arabic-vocab/internal/sound"
 )
 
 func TestMakeClipKeepsTheFirstClipThatHasSound(t *testing.T) {
@@ -174,7 +176,7 @@ func TestSilentIssueAndError(t *testing.T) {
 	if want := "The sentence audio has no sound: it came back silent in all 4 attempts."; is.Detail != want {
 		t.Errorf("detail = %q, want %q", is.Detail, want)
 	}
-	if got := SilentIssue("WordAudio", 1).Detail; got != "The word audio has no sound: it came back silent in all 1 attempt." {
+	if got := SilentIssue("WordAudio", 1).Detail; got != "The word audio has no sound: it came back silent on its only attempt." {
 		t.Errorf("detail = %q", got)
 	}
 	if IssueKey(is) != "ExampleAudio:silent" {
@@ -309,15 +311,100 @@ func TestCurrentAudioNeedsTheSameVersionAndText(t *testing.T) {
 	}
 }
 
-func TestReviewedSilentFlagsStayClosed(t *testing.T) {
+func TestSilentFlagsCannotBeReviewedAway(t *testing.T) {
 	a := note("كِتَاب", 1)
 	c := notes.Check{ID: a.ID, Version: AudioCheckVersion, Digest: a.Digest(), Issues: []notes.Issue{SilentIssue("ExampleAudio", 4), SilentIssue("WordAudio", 4)}}
-	if got := OpenIssues(a, c); len(got) != 2 {
+	if got := OpenAudioIssues(a, c); len(got) != 2 {
 		t.Fatalf("open = %+v", got)
 	}
-	a.Reviewed = []string{"ExampleAudio:silent"}
-	got := OpenIssues(a, c)
-	if len(got) != 1 || got[0].Field != "WordAudio" {
-		t.Errorf("only the reviewed clip should close: %+v", got)
+	a.Reviewed = []string{"ExampleAudio:silent", "WordAudio:silent"}
+	got := OpenAudioIssues(a, c)
+	if len(got) != 2 || got[0].Field != "ExampleAudio" || got[1].Field != "WordAudio" {
+		t.Errorf("a clip without sound stays flagged until it has sound, whatever the note says: %+v", got)
+	}
+	got[0].Field = "changed"
+	if c.Issues[0].Field != "ExampleAudio" {
+		t.Error("the check must not be changed through the result")
+	}
+}
+
+func TestOpenAudioIssuesIgnoresChecksOfOtherVersionsOfTheNote(t *testing.T) {
+	a := note("كِتَاب", 1)
+	c := notes.Check{ID: a.ID, Version: AudioCheckVersion, Digest: a.Digest(), Issues: []notes.Issue{SilentIssue("WordAudio", 4)}}
+	a.Example = "هٰذَا <b>كِتَابٌ</b>."
+	if got := OpenAudioIssues(a, c); len(got) != 0 {
+		t.Errorf("a flag about text that no longer exists is not open: %+v", got)
+	}
+	c.Digest = a.Digest()
+	c.Version++
+	if got := OpenAudioIssues(a, c); len(got) != 0 {
+		t.Errorf("another version of the check: %+v", got)
+	}
+}
+
+func TestMakeClipCreatesTheMediaDirectoryItNeeds(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "cache", "media", "ar-1.mp3")
+	st := newStudio()
+	out, err := MakeClip(context.Background(), st.speak, st.inspect, "كِتَاب", path, 4)
+	if err != nil || out.Silent {
+		t.Fatalf("outcome %+v, err %v", out, err)
+	}
+	if raw, _ := os.ReadFile(path); string(raw) != "sound" {
+		t.Errorf("clip = %q", raw)
+	}
+
+	blocked := filepath.Join(t.TempDir(), "file")
+	os.WriteFile(blocked, []byte("x"), 0o644)
+	if _, err := MakeClip(context.Background(), st.speak, st.inspect, "كِتَاب", filepath.Join(blocked, "ar-1.mp3"), 4); err == nil {
+		t.Error("a media directory that cannot be created is an error")
+	}
+}
+
+func TestMakeClipNamesTheClipThatCannotBeRead(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "ar-1.mp3")
+	st := newStudio()
+	st.say("كِتَاب", "broken")
+	_, err := MakeClip(context.Background(), st.speak, st.inspect, "كِتَاب", path, 4)
+	if !errors.Is(err, ErrUnreadable) || !strings.Contains(err.Error(), path) || !strings.Contains(err.Error(), "not an audio file") || strings.Contains(err.Error(), ".make-") {
+		t.Errorf("err = %v", err)
+	}
+}
+
+func TestMakeClipHidesItsTemporaryFileNameInErrors(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "ar-1.mp3")
+	st := newStudio()
+	inspect := func(_ context.Context, tmp string) (sound.Result, error) {
+		return sound.Result{}, fmt.Errorf("decoding %s: ffmpeg said: Error opening input file %s.", filepath.Base(tmp), tmp)
+	}
+	_, err := MakeClip(context.Background(), st.speak, inspect, "كِتَاب", path, 4)
+	if !errors.Is(err, ErrUnreadable) || strings.Contains(err.Error(), ".make-") {
+		t.Fatalf("the error should talk about the clip, not about a throwaway file: %v", err)
+	}
+	if !strings.Contains(err.Error(), "decoding ar-1.mp3: ffmpeg said: Error opening input file "+path+".") {
+		t.Errorf("err = %v", err)
+	}
+}
+
+func TestClipOwnersListsEveryNoteAndFieldThatSpeaksATextOnce(t *testing.T) {
+	a, b, c := clipNote("كِتَاب", 1), clipNote("قَلَم", 2), clipNote("بَاب", 3)
+	b.Example = a.Example
+	unwritten := notes.Note{ID: "x", Position: 4, Arabic: "كِتَاب"}
+	ns := []notes.Note{a, b, c, unwritten}
+	got := ClipOwners(ns, sentenceOf(a))
+	if len(got) != 2 || got[0] != (ClipOwner{Index: 0, Field: "ExampleAudio"}) || got[1] != (ClipOwner{Index: 1, Field: "ExampleAudio"}) {
+		t.Errorf("owners of the shared sentence: %+v", got)
+	}
+	if got := ClipOwners(ns, wordOf(c)); len(got) != 1 || got[0].Index != 2 || got[0].Field != "WordAudio" {
+		t.Errorf("owners of one word: %+v", got)
+	}
+	d := clipNote("شَجَرَة", 5)
+	d.Example = "<b>" + wordOf(a) + "</b>"
+	if got := ClipOwners([]notes.Note{a, d}, wordOf(a)); len(got) < 1 || got[0].Field != "WordAudio" {
+		t.Errorf("owners = %+v", got)
+	}
+	if got := ClipOwners(ns, "nobody says this"); len(got) != 0 {
+		t.Errorf("owners = %+v", got)
 	}
 }

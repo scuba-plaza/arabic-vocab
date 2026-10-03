@@ -35,6 +35,7 @@ func newReviewCommand(paths *deck.Paths) *cobra.Command {
 			"next to CATT's and CAMeL's readings with the differing letters highlighted,\n" +
 			"or which clip came back without any sound. For each note you can\n" +
 			"  enter  say the card is right, so its flags stay out of the next build\n" +
+			"         (a clip without sound stays flagged: remake it or edit the text)\n" +
 			"  e      edit the note\n" +
 			"  c      ask Claude Code for a better version, and keep it or not\n" +
 			"  w/f/s  listen to the word, the forms or the sentence\n" +
@@ -45,7 +46,8 @@ func newReviewCommand(paths *deck.Paths) *cobra.Command {
 			"again with Google Text-to-Speech, as 'arabic-vocab audio' does. A voice that\n" +
 			"was unlucky once usually gets the word right on the next try; a clip that\n" +
 			"comes back silent is asked for again, as 'arabic-vocab audio' does, and its\n" +
-			"flag clears when the new clip has sound.\n\n" +
+			"flag clears when the new clip has sound, for every note that plays it. While\n" +
+			"'arabic-vocab audio' is running these buttons wait a few seconds and then say so.\n\n" +
 			"The voice itself can be picked from Google's ar-XA voices next to those\n" +
 			"buttons. It is saved in deck.json, so it speaks every clip made from then\n" +
 			"on, here and in later 'arabic-vocab audio' runs.\n\n" +
@@ -74,7 +76,7 @@ func newReviewCommand(paths *deck.Paths) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			store := newClips(paths, settings.AudioVoice(), manifest, audioChecks)
+			store := newClips(paths, settings.AudioVoice(), manifest)
 			defer store.close()
 			items, stale := review.Items(ns, checks, audioChecks, review.Filter{Minor: minor, All: all})
 			noun := func(n int) string {
@@ -84,11 +86,7 @@ func newReviewCommand(paths *deck.Paths) *cobra.Command {
 				return count(n, "flagged note", "flagged notes")
 			}
 			if stale > 0 {
-				if all {
-					defer infof("%s a fresh 'arabic-vocab check'; the flags shown for them are older than the note\n", count(stale, "note needs", "notes need"))
-				} else {
-					defer infof("%s a fresh 'arabic-vocab check' and were not shown\n", count(stale, "note needs", "notes need"))
-				}
+				defer infof("%s\n", staleNotice(stale, all))
 			}
 			if left := unwritten(ns); all && left > 0 {
 				defer infof("%s not written yet and were not shown; 'arabic-vocab add' writes them\n", count(left, "note is", "notes are"))
@@ -102,6 +100,7 @@ func newReviewCommand(paths *deck.Paths) *cobra.Command {
 				Clip:     store.path,
 				Remake:   store.remake,
 				Remove:   store.remove,
+				Flags:    store.flags,
 				Voice:    settings.Voice,
 				Voices:   store.voiceOptions,
 				SetVoice: store.setVoice,
@@ -137,6 +136,14 @@ func newReviewCommand(paths *deck.Paths) *cobra.Command {
 	f.BoolVar(&noBrowser, "no-browser", false, "only print the address instead of opening a browser")
 	googleFlags(cmd)
 	return cmd
+}
+
+func staleNotice(stale int, all bool) string {
+	needs := count(stale, "note needs", "notes need")
+	if all {
+		return needs + " a fresh 'arabic-vocab check'; the vowel flags shown for them are older than the note"
+	}
+	return needs + " a fresh 'arabic-vocab check' before their vowel flags can be shown"
 }
 
 func unwritten(ns []notes.Note) int {

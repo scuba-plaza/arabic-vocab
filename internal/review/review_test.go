@@ -142,10 +142,7 @@ func TestItemsIgnoreClipFlagsThatNoLongerApply(t *testing.T) {
 	stale.Digest = "an older text"
 	older := audioCheckFor(f.ns[1], silent("WordAudio"))
 	older.Version = deck.AudioCheckVersion + 1
-	reviewed := f.ns[3]
-	reviewed.Reviewed = append(reviewed.Reviewed, "WordAudio:silent")
-	f.ns[3] = reviewed
-	f.audio = []notes.Check{stale, older, audioCheckFor(reviewed, silent("WordAudio")), audioCheckFor(notes.Note{ID: "nobody"}, silent("WordAudio"))}
+	f.audio = []notes.Check{stale, older, audioCheckFor(notes.Note{ID: "nobody"}, silent("WordAudio"))}
 	items, _ := f.items(Filter{Minor: true})
 	for _, it := range items {
 		for _, is := range it.Issues {
@@ -178,5 +175,21 @@ func TestFeedbackLeavesClipFlagsOut(t *testing.T) {
 	got = Feedback(mixed)
 	if !strings.Contains(got, "disagreed with this card") || !strings.Contains(got, "- the example: CATT's reading") || strings.Contains(got, "WordAudio") {
 		t.Errorf("feedback with both:\n%s", got)
+	}
+}
+
+func TestItemsShowASilentFlagWhateverTheNoteHasReviewed(t *testing.T) {
+	f := newFixture()
+	f.ns[4].Reviewed = []string{"عَشْر", "WordAudio:silent"}
+	f.audio = []notes.Check{audioCheckFor(f.ns[4], silent("WordAudio"))}
+	items, _ := f.items(Filter{})
+	var got []notes.Issue
+	for _, it := range items {
+		if f.ns[it.Index].ID == "عَشَرَة" {
+			got = it.Issues
+		}
+	}
+	if len(got) != 1 || got[0].Kind != deck.KindSilent {
+		t.Errorf("a clip without sound cannot be reviewed away: %+v", got)
 	}
 }

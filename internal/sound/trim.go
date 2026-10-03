@@ -23,11 +23,15 @@ func Available() error {
 	return nil
 }
 
+func Inspect(ctx context.Context, path string) (Result, error) {
+	return inspect(ctx, path, Default)
+}
+
 func Trim(ctx context.Context, path string) (Result, error) {
 	return trim(ctx, path, Default)
 }
 
-func trim(ctx context.Context, path string, cfg Config) (Result, error) {
+func inspect(ctx context.Context, path string, cfg Config) (Result, error) {
 	st, err := os.Stat(path)
 	if err != nil {
 		return Result{}, err
@@ -39,14 +43,34 @@ func trim(ctx context.Context, path string, cfg Config) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	res := Analyze(pcm, analysisRate, cfg)
-	if !res.Trimmed() {
-		return res, nil
+	return Analyze(pcm, analysisRate, cfg), nil
+}
+
+func trim(ctx context.Context, path string, cfg Config) (Result, error) {
+	res, err := inspect(ctx, path, cfg)
+	if err != nil || !res.Trimmed() {
+		return res, err
 	}
-	if err := cut(ctx, path, res.Start, res.End); err != nil {
+	if err := cut(ctx, path, res); err != nil {
 		return Result{}, err
 	}
 	return res, nil
+}
+
+const maxDetailLines = 3
+
+func lastLines(s string) string {
+	lines := strings.Split(strings.TrimSpace(s), "\n")
+	left := 0
+	if len(lines) > maxDetailLines {
+		left = len(lines) - maxDetailLines
+		lines = lines[left:]
+	}
+	out := strings.Join(lines, "; ")
+	if left > 0 {
+		out = fmt.Sprintf("%s (%d earlier lines left out)", out, left)
+	}
+	return out
 }
 
 func run(ctx context.Context, what string, stdout *bytes.Buffer, args ...string) error {
@@ -60,7 +84,7 @@ func run(ctx context.Context, what string, stdout *bytes.Buffer, args ...string)
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		if detail := strings.TrimSpace(stderr.String()); detail != "" {
+		if detail := lastLines(stderr.String()); detail != "" {
 			return fmt.Errorf("%s: %w: %s", what, err, detail)
 		}
 		return fmt.Errorf("%s: %w", what, err)
@@ -87,7 +111,9 @@ func seconds(d time.Duration) string {
 	return strconv.FormatFloat(d.Seconds(), 'f', 3, 64)
 }
 
-func cut(ctx context.Context, path string, start, end time.Duration) error {
+const frame = 30 * time.Millisecond
+
+func cut(ctx context.Context, path string, res Result) error {
 	file, err := os.CreateTemp(filepath.Dir(path), ".trim-*"+filepath.Ext(path))
 	if err != nil {
 		return err
@@ -98,10 +124,15 @@ func cut(ctx context.Context, path string, start, end time.Duration) error {
 	if err := os.Chmod(tmp, 0o644); err != nil {
 		return err
 	}
-	err = run(ctx, "trimming "+filepath.Base(path), nil,
-		"-y", "-i", path, "-ss", seconds(start), "-to", seconds(end),
-		"-c", "copy", "-write_xing", "0", "-id3v2_version", "0", "-map_metadata", "-1", "-f", "mp3", tmp)
-	if err != nil {
+	args := []string{"-y", "-i", path}
+	if start := res.Start - frame; start > 0 {
+		args = append(args, "-ss", seconds(start))
+	}
+	if end := res.End + frame; end < res.Duration {
+		args = append(args, "-to", seconds(end))
+	}
+	args = append(args, "-c", "copy", "-write_xing", "0", "-id3v2_version", "0", "-map_metadata", "-1", "-f", "mp3", tmp)
+	if err := run(ctx, "trimming "+filepath.Base(path), nil, args...); err != nil {
 		return err
 	}
 	return os.Rename(tmp, path)
