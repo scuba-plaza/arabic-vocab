@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -36,8 +37,10 @@ func newAddCommand(paths *deck.Paths) *cobra.Command {
 			"word, add lists them and asks which one you mean; type the vowels to narrow\n" +
 			"the list. The entries come from Wiktionary's Arabic dump, which add offers to\n" +
 			"download once (about 500 MB, shared with 'rank'); without it only the ranked\n" +
-			"list is searched. The main sense of a ranked word keeps its rank in the deck;\n" +
-			"every other named word goes after the ranked ones.\n\n" +
+			"list is searched. With --yes nothing is asked, so every word takes its likeliest\n" +
+			"sense and the dump is downloaded only for words the ranked list lacks. The main sense of a ranked word keeps its rank in the deck;\n" +
+			"every other named word goes after the ranked ones, and a word the deck\n" +
+			"already has is left as it is.\n\n" +
 			"The headword, its forms, gender and root come from Wiktionary; Claude Code\n" +
 			"writes the English meaning, a hint where the meaning needs one, and a fully\n" +
 			"vowelled example sentence built from common words, following\n" +
@@ -46,20 +49,25 @@ func newAddCommand(paths *deck.Paths) *cobra.Command {
 			"Runs 'claude -p' with your Claude Code login, so a Pro or Max subscription is\n" +
 			"enough and no API key is needed; usage counts towards your plan's limits.\n" +
 			"Every finished note is saved straight away. If a run stops early, at a usage\n" +
-			"limit for example, run add again: the words that were not written come first.",
+			"limit for example, add prints the command that writes the rest: plain add\n" +
+			"continues with the words that were not written, and for named words you give\n" +
+			"those words again.",
 		Example: "  arabic-vocab add                  the next 100 words\n" +
 			"  arabic-vocab add -n 20            the next 20 words\n" +
 			"  arabic-vocab add كتاب عين         these two words, asking about senses\n" +
 			"  arabic-vocab add --file words.txt every word in the file\n" +
-			"  arabic-vocab add --yes ماء        no questions: likeliest sense, download if needed",
+			"  arabic-vocab add --yes ماء        no questions: the likeliest sense of every word",
 		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			named, err := wordList(args, file)
 			if err != nil {
 				return err
 			}
-			if file != "" && len(named) == 0 {
+			if len(named) == 0 && file != "" {
 				return usagef("%s has no words", file)
+			}
+			if len(named) == 0 && len(args) > 0 {
+				return usagef("the words to add are empty; give Arabic words, or no words to add the next ranked ones")
 			}
 			if len(named) > 0 && cmd.Flags().Changed("count") {
 				return usagef("--count and the words to add cannot be combined")
@@ -117,7 +125,7 @@ func newAddCommand(paths *deck.Paths) *cobra.Command {
 					infof("nothing to add\n")
 					return nil
 				}
-				job.notes, job.targets, job.context, job.feedback = plan.notes, plan.targets, plan.context, plan.feedback
+				job.notes, job.targets, job.context, job.feedback, job.typed = plan.notes, plan.targets, plan.context, plan.feedback, plan.typed
 				job.announce = fmt.Sprintf("adding %s with Claude Code (%d per request)", count(len(plan.targets), "word", "words"), batch)
 			}
 			if err := job.run(cmd, paths); err != nil {
@@ -132,7 +140,7 @@ func newAddCommand(paths *deck.Paths) *cobra.Command {
 	f := cmd.Flags()
 	f.IntVarP(&words, "count", "n", 100, "number of words to add")
 	f.StringVarP(&file, "file", "f", "", "file with the words to add, one per line (# starts a comment)")
-	f.BoolVarP(&yes, "yes", "y", false, "do not ask: take the likeliest sense of every word and download the Wiktionary dump if it is needed")
+	f.BoolVarP(&yes, "yes", "y", false, "do not ask: take the likeliest sense of every word; the Wiktionary dump is downloaded only for words the ranked list lacks")
 	f.StringVar(&claude, "claude", "claude", "Claude Code executable")
 	f.StringVar(&model, "model", "", "model for Claude Code to use (default: Claude Code's own default)")
 	f.StringVar(&effort, "effort", "", "effort level: low, medium, high, xhigh or max (default: Claude Code's own)")
@@ -151,22 +159,58 @@ type addJob struct {
 	targets     []int
 	context     map[string]*rank.Record
 	feedback    map[int]string
+	typed       map[string]string
 	announce    string
 }
 
-func (j addJob) run(cmd *cobra.Command, paths *deck.Paths) error {
-	kept := map[string]bool{}
-	for _, n := range j.existing {
-		kept[n.ID] = true
+func (j addJob) unwritten() []string {
+	var out []string
+	for _, i := range j.targets {
+		if j.notes[i].Authored() {
+			continue
+		}
+		if w := j.typed[j.notes[i].ID]; w != "" && !slices.Contains(out, w) {
+			out = append(out, w)
+		}
 	}
+	return out
+}
+
+func (j addJob) resume() string {
+	if len(j.typed) == 0 {
+		return "arabic-vocab add"
+	}
+	words := j.unwritten()
+	for i, w := range words {
+		if strings.ContainsAny(w, " \t") {
+			words[i] = `"` + w + `"`
+		}
+	}
+	return strings.Join(append([]string{"arabic-vocab add"}, words...), " ")
+}
+
+func (j addJob) run(cmd *cobra.Command, paths *deck.Paths) error {
 	save := func(ns []notes.Note) error {
-		var out []notes.Note
-		for _, n := range ns {
-			if n.Authored() || kept[n.ID] {
-				out = append(out, n)
+		current, err := notes.ReadJSONL[notes.Note](paths.Notes())
+		if err != nil {
+			return err
+		}
+		for _, i := range j.targets {
+			n := ns[i]
+			if !n.Authored() {
+				continue
+			}
+			if at := slices.IndexFunc(current, func(c notes.Note) bool { return c.ID == n.ID }); at >= 0 {
+				current[at] = n
+			} else {
+				current = append(current, n)
 			}
 		}
-		return notes.WriteJSONL(paths.Notes(), out)
+		notes.Sort(current)
+		if err := notes.Validate(current); err != nil {
+			return err
+		}
+		return notes.WriteJSONL(paths.Notes(), current)
 	}
 	byID, system := curateContext(j.notes, j.records, curate.DefaultVocabulary, curate.DefaultExamples)
 	for id, rec := range j.context {
@@ -179,6 +223,7 @@ func (j addJob) run(cmd *cobra.Command, paths *deck.Paths) error {
 		Attempts:    2,
 		System:      system,
 		Feedback:    j.feedback,
+		Accept:      j.accept,
 		Save:        save,
 		Progress: func(done, total int, n notes.Note, err error) {
 			status := n.English
@@ -201,16 +246,23 @@ func (j addJob) run(cmd *cobra.Command, paths *deck.Paths) error {
 		}
 	}
 	if runErr != nil {
-		if res != nil && res.Curated > 0 {
-			infof("the finished notes are saved; run 'arabic-vocab add' again to write the rest\n")
+		if res != nil && (res.Curated > 0 || len(j.typed) > 0) {
+			infof("the finished notes are saved; to write the rest, run: %s\n", j.resume())
 		}
 		return runErr
 	}
 	if len(res.Failed) > 0 {
-		return fmt.Errorf("%s could not be written; they are listed above, and the next 'arabic-vocab add' tries them again", count(len(res.Failed), "word", "words"))
+		return fmt.Errorf("%s could not be written; they are listed above, and running '%s' tries them again", count(len(res.Failed), "word", "words"), j.resume())
 	}
 	infof("next: arabic-vocab check\n")
 	return nil
+}
+
+func (j addJob) accept(draft notes.Note, card curate.Card) error {
+	if j.feedback[draft.Position] == "" {
+		return nil
+	}
+	return deck.CheckEntry(draft, card.Pos, card.Arabic)
 }
 
 func curateContext(ns []notes.Note, records []rank.Record, vocabulary, examples int) (map[string]*rank.Record, string) {

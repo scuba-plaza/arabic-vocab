@@ -118,7 +118,7 @@ func Read(r io.Reader) ([]*Entry, error) {
 	return ReadWhere(r, nil)
 }
 
-func ReadWhere(r io.Reader, keep func(title string) bool) ([]*Entry, error) {
+func ReadWhere(r io.Reader, keep func(title, canonical string) bool) ([]*Entry, error) {
 	var entries []*Entry
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 1024*1024), 64*1024*1024)
@@ -127,12 +127,17 @@ func ReadWhere(r io.Reader, keep func(title string) bool) ([]*Entry, error) {
 		line++
 		if keep != nil {
 			var head struct {
-				Word string `json:"word"`
+				Word  string    `json:"word"`
+				Forms []rawForm `json:"forms"`
 			}
 			if err := json.Unmarshal(sc.Bytes(), &head); err != nil {
 				return nil, fmt.Errorf("wiktionary dump line %d: %w", line, err)
 			}
-			if !keep(head.Word) {
+			_, canonical, ok := canonicalForm(head.Forms)
+			if !ok {
+				canonical = head.Word
+			}
+			if !keep(head.Word, canonical) {
 				continue
 			}
 		}
@@ -174,15 +179,10 @@ func convert(raw *rawEntry) *Entry {
 	if len(e.Senses) == 0 {
 		return nil
 	}
-	for _, f := range raw.Forms {
-		if slices.Contains(f.Tags, "canonical") {
-			if w, ok := arabicPhrase(f.Form); ok {
-				e.Canonical = w
-				e.Gender = gender(f.Tags)
-				e.VerbForm = verbForm(f.Tags)
-				break
-			}
-		}
+	if f, w, ok := canonicalForm(raw.Forms); ok {
+		e.Canonical = w
+		e.Gender = gender(f.Tags)
+		e.VerbForm = verbForm(f.Tags)
 	}
 	if e.Canonical == "" {
 		e.Canonical = raw.Word
@@ -198,6 +198,17 @@ func convert(raw *rawEntry) *Entry {
 	}
 	e.Forms = indexForms(e, raw.Forms)
 	return e
+}
+
+func canonicalForm(forms []rawForm) (rawForm, string, bool) {
+	for _, f := range forms {
+		if slices.Contains(f.Tags, "canonical") {
+			if w, ok := arabicPhrase(f.Form); ok {
+				return f, w, true
+			}
+		}
+	}
+	return rawForm{}, "", false
 }
 
 func arabicPhrase(s string) (string, bool) {

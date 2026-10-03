@@ -206,27 +206,38 @@ func (a *asker) choose(word string, cands []deck.Candidate, planner *deck.Planne
 	}
 }
 
-func lookupDump(ctx context.Context, a *asker, paths *deck.Paths, words []string, yes bool) ([]*lexicon.Entry, error) {
-	src := deck.KaikkiSource(*paths)
+var kaikki = deck.KaikkiSource
+
+const (
+	dumpDeclined = "the Wiktionary dump was not downloaded"
+	dumpFailed   = "the Wiktionary dump could not be downloaded"
+)
+
+func lookupDump(ctx context.Context, a *asker, paths *deck.Paths, words []string, yes bool) ([]*lexicon.Entry, string, error) {
+	src := kaikki(*paths)
 	if st, err := os.Stat(src.Path); err != nil || st.Size() == 0 {
 		if !yes {
 			fmt.Fprintf(a.out, "To find every sense of a spelling, and words outside the ranked list, add needs Wiktionary's Arabic dump from kaikki.org: a download of about 500 MB, kept in %s for later runs ('rank' uses it too).\n", src.Path)
 			ok, err := a.confirm("download it now? [y/N]: ")
 			if err != nil {
-				return nil, err
+				return nil, "", err
 			}
 			if !ok {
 				fmt.Fprintln(a.out, "using the ranked list only")
-				return nil, nil
+				return nil, dumpDeclined, nil
 			}
 		}
 		if err := downloadSource(ctx, src, false); err != nil {
-			return nil, err
+			if ctx.Err() != nil {
+				return nil, "", ctx.Err()
+			}
+			fmt.Fprintf(a.out, "%v\nusing the ranked list only\n", err)
+			return nil, dumpFailed, nil
 		}
 	}
 	f, err := os.Open(src.Path)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	defer f.Close()
 	skeletons := map[string]bool{}
@@ -234,11 +245,13 @@ func lookupDump(ctx context.Context, a *asker, paths *deck.Paths, words []string
 		skeletons[tashkeel.Fold(tashkeel.Skeleton(w))] = true
 	}
 	infof("reading the Wiktionary dump\n")
-	entries, err := lexicon.ReadWhere(f, func(title string) bool { return skeletons[tashkeel.Fold(tashkeel.Skeleton(title))] })
+	entries, err := lexicon.ReadWhere(f, func(title, canonical string) bool {
+		return skeletons[tashkeel.Fold(tashkeel.Skeleton(title))] || skeletons[tashkeel.Fold(tashkeel.Skeleton(canonical))]
+	})
 	if entries == nil {
 		entries = []*lexicon.Entry{}
 	}
-	return entries, err
+	return entries, "", err
 }
 
 type wordPlan struct {
@@ -246,23 +259,43 @@ type wordPlan struct {
 	targets  []int
 	context  map[string]*rank.Record
 	feedback map[int]string
+	typed    map[string]string
 	missing  []string
 }
 
 func planWords(ctx context.Context, cmd *cobra.Command, paths *deck.Paths, existing []notes.Note, records []rank.Record, words []string, yes bool) (*wordPlan, error) {
 	a := &asker{ctx: ctx, in: bufio.NewReader(cmd.InOrStdin()), out: cmd.ErrOrStderr()}
-	entries, err := lookupDump(ctx, a, paths, words, yes)
-	if err != nil {
-		return nil, err
+	need := words
+	if yes {
+		need = nil
+		for _, w := range words {
+			if len(deck.FindRanked(w, records)) == 0 {
+				need = append(need, w)
+			}
+		}
+	}
+	var entries []*lexicon.Entry
+	why := ""
+	if len(need) > 0 {
+		var err error
+		if entries, why, err = lookupDump(ctx, a, paths, need, yes); err != nil {
+			return nil, err
+		}
 	}
 
-	planner := deck.NewPlanner(existing)
-	plan := &wordPlan{context: map[string]*rank.Record{}, feedback: map[int]string{}}
+	planner := deck.NewPlanner(existing, records)
+	plan := &wordPlan{context: map[string]*rank.Record{}, feedback: map[int]string{}, typed: map[string]string{}}
 	for _, w := range words {
 		cands := deck.Find(w, records, entries)
 		if len(cands) == 0 {
-			if entries == nil {
-				fmt.Fprintf(a.out, "%s: not in the ranked list, and the Wiktionary dump was not downloaded\n", w)
+			if held := planner.Holding(w); len(held) > 0 {
+				for _, n := range held {
+					infof("%s: already in the deck as %s (%s), position %d\n", w, n.Arabic, n.English, n.Position)
+				}
+				continue
+			}
+			if why != "" {
+				fmt.Fprintf(a.out, "%s: not in the ranked list, and %s\n", w, why)
 			} else {
 				fmt.Fprintf(a.out, "%s: %s\n", w, notFound)
 			}
@@ -302,6 +335,7 @@ func planWords(ctx context.Context, cmd *cobra.Command, paths *deck.Paths, exist
 			}
 			plan.context[p.Note.ID] = p.Context
 			plan.feedback[p.Note.Position] = p.Feedback
+			plan.typed[p.Note.ID] = w
 		}
 	}
 	plan.notes, plan.targets = planner.Notes()

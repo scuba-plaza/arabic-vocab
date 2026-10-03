@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"unicode"
 
 	"github.com/scuba-plaza/arabic-vocab/internal/lexicon"
 	"github.com/scuba-plaza/arabic-vocab/internal/notes"
@@ -39,7 +40,13 @@ func (c Candidate) claimsRank() bool {
 }
 
 func NormalizeWord(s string) string {
-	return strings.Join(strings.Fields(strings.ReplaceAll(s, string(tashkeel.Tatweel), "")), " ")
+	s = strings.Map(func(r rune) rune {
+		if r == tashkeel.Tatweel || unicode.Is(unicode.Cf, r) {
+			return -1
+		}
+		return r
+	}, s)
+	return strings.Join(strings.Fields(s), " ")
 }
 
 func Find(word string, records []rank.Record, entries []*lexicon.Entry) []Candidate {
@@ -99,12 +106,57 @@ func newQuery(word string) query {
 	return query{word: word, skeleton: skeleton, loose: tashkeel.Fold(skeleton)}
 }
 
-func (q query) matches(e *lexicon.Entry, loose bool) bool {
-	skeleton := tashkeel.Skeleton(e.Canonical)
+func (q query) fits(canonical string, loose bool) bool {
+	skeleton := tashkeel.Skeleton(canonical)
 	if loose {
-		return tashkeel.Fold(skeleton) == q.loose && tashkeel.CompatibleCitation(tashkeel.Fold(e.Canonical), tashkeel.Fold(q.word))
+		return tashkeel.Fold(skeleton) == q.loose && tashkeel.CompatibleCitation(tashkeel.Fold(canonical), tashkeel.Fold(q.word))
 	}
-	return skeleton == q.skeleton && tashkeel.CompatibleCitation(e.Canonical, q.word)
+	return skeleton == q.skeleton && tashkeel.CompatibleCitation(canonical, q.word)
+}
+
+func (q query) fitsTitle(e *lexicon.Entry, loose bool) bool {
+	skeleton := tashkeel.Skeleton(e.Title)
+	if loose {
+		skeleton = tashkeel.Fold(skeleton)
+	}
+	want := q.skeleton
+	if loose {
+		want = q.loose
+	}
+	if e.Title == "" || skeleton != want {
+		return false
+	}
+	if !strings.ContainsFunc(q.word, tashkeel.IsMark) {
+		return true
+	}
+	for _, w := range strings.Fields(e.Canonical) {
+		if q.fits(w, loose) || q.fits(withoutArticle(w), loose) {
+			return true
+		}
+	}
+	return false
+}
+
+func withoutArticle(word string) string {
+	letters := tashkeel.Letters(word)
+	if len(letters) > 3 && tashkeel.Skeleton(letters[0]+letters[1]) == "ال" {
+		return strings.Join(letters[2:], "")
+	}
+	return word
+}
+
+type pass struct {
+	loose bool
+	title bool
+}
+
+var passes = []pass{{false, false}, {true, false}, {false, true}, {true, true}}
+
+func (q query) matches(e *lexicon.Entry, p pass) bool {
+	if p.title {
+		return q.fitsTitle(e, p.loose)
+	}
+	return q.fits(e.Canonical, p.loose)
 }
 
 func find(word string, recs []*rank.Record) []Candidate {
@@ -112,10 +164,10 @@ func find(word string, recs []*rank.Record) []Candidate {
 	if q.skeleton == "" {
 		return nil
 	}
-	for _, loose := range []bool{false, true} {
+	for _, p := range passes {
 		var out []Candidate
 		for _, rec := range recs {
-			out = append(out, candidatesOf(q, rec, loose)...)
+			out = append(out, candidatesOf(q, rec, p)...)
 		}
 		if len(out) > 0 {
 			return out
@@ -124,10 +176,10 @@ func find(word string, recs []*rank.Record) []Candidate {
 	return nil
 }
 
-func candidatesOf(q query, rec *rank.Record, loose bool) []Candidate {
+func candidatesOf(q query, rec *rank.Record, p pass) []Candidate {
 	var out []Candidate
 	for _, e := range rec.Entries {
-		if e.Pos == "name" || !e.MSA() || !q.matches(e, loose) {
+		if e.Pos == "name" || !e.MSA() || !q.matches(e, p) {
 			continue
 		}
 		if i := slices.IndexFunc(out, func(c Candidate) bool { return c.Main().Pos == e.Pos }); i >= 0 {
@@ -141,7 +193,26 @@ func candidatesOf(q query, rec *rank.Record, loose bool) []Candidate {
 
 func SenseFeedback(c Candidate) string {
 	e := c.Main()
-	return fmt.Sprintf("The learner asked for this entry in particular (%s, %s). Write the card for it: keep its headword, part of speech and forms, and do not switch to another entry of the same spelling.", e.Pos, e.Canonical)
+	return fmt.Sprintf("The learner asked for this entry in particular (%s, %s), the only Wiktionary entry listed for this card. Write the card for it: keep its headword, part of speech and forms, and do not switch to another entry of the same spelling.", e.Pos, e.Canonical)
+}
+
+var functionWords = []string{"adv", "conj", "det", "intj", "num", "particle", "phrase", "prep", "pron"}
+
+func posClass(pos string) string {
+	if slices.Contains(functionWords, pos) {
+		return "function"
+	}
+	return pos
+}
+
+func CheckEntry(draft notes.Note, pos, arabic string) error {
+	if posClass(pos) != posClass(draft.Pos) {
+		return fmt.Errorf("the learner asked for the %s %s, but the card is for a %s; write the card for the %s", draft.Pos, draft.Arabic, pos, draft.Pos)
+	}
+	if !tashkeel.CompatibleCitation(arabic, draft.Arabic) {
+		return fmt.Errorf("the learner asked for the headword %s, but the card's headword is %s; keep %s", draft.Arabic, arabic, draft.Arabic)
+	}
+	return nil
 }
 
 type Placement struct {
@@ -153,20 +224,25 @@ type Placement struct {
 }
 
 type Planner struct {
-	notes   []notes.Note
-	ids     map[string]bool
-	taken   map[int]bool
-	last    int
-	targets map[string]bool
+	notes    []notes.Note
+	ids      map[string]bool
+	reserved map[string]bool
+	taken    map[int]bool
+	last     int
+	targets  map[string]bool
 }
 
-func NewPlanner(existing []notes.Note) *Planner {
+func NewPlanner(existing []notes.Note, records []rank.Record) *Planner {
 	p := &Planner{
-		notes:   slices.Clone(existing),
-		ids:     map[string]bool{},
-		taken:   map[int]bool{},
-		last:    UnrankedBase,
-		targets: map[string]bool{},
+		notes:    slices.Clone(existing),
+		ids:      map[string]bool{},
+		reserved: map[string]bool{},
+		taken:    map[int]bool{},
+		last:     UnrankedBase,
+		targets:  map[string]bool{},
+	}
+	for _, rec := range records {
+		p.reserved[rec.ID] = true
 	}
 	for _, n := range existing {
 		p.ids[n.ID] = true
@@ -177,6 +253,11 @@ func NewPlanner(existing []notes.Note) *Planner {
 }
 
 func (p *Planner) Existing(c Candidate) (notes.Note, bool) {
+	if c.claimsRank() {
+		if i := slices.IndexFunc(p.notes, func(n notes.Note) bool { return n.Position == c.Record.Rank }); i >= 0 {
+			return p.notes[i], true
+		}
+	}
 	e := c.Main()
 	key := tashkeel.LexKey(e.Canonical)
 	i := slices.IndexFunc(p.notes, func(n notes.Note) bool {
@@ -186,6 +267,25 @@ func (p *Planner) Existing(c Candidate) (notes.Note, bool) {
 		return notes.Note{}, false
 	}
 	return p.notes[i], true
+}
+
+func (p *Planner) Holding(word string) []notes.Note {
+	q := newQuery(word)
+	if q.skeleton == "" {
+		return nil
+	}
+	for _, loose := range []bool{false, true} {
+		var out []notes.Note
+		for _, n := range p.notes {
+			if n.Authored() && q.fits(n.Arabic, loose) {
+				out = append(out, n)
+			}
+		}
+		if len(out) > 0 {
+			return out
+		}
+	}
+	return nil
 }
 
 func (p *Planner) Add(c Candidate) Placement {
@@ -211,11 +311,12 @@ func (p *Planner) place(c Candidate) (string, int, string) {
 		return c.Record.ID, c.Record.Rank, c.Record.CEFR
 	}
 	e := c.Main()
+	free := func(id string) bool { return !p.ids[id] && !p.reserved[id] }
 	id := e.Canonical
-	if p.ids[id] {
+	if !free(id) {
 		id = fmt.Sprintf("%s (%s)", e.Canonical, e.Pos)
 	}
-	for n := 2; p.ids[id]; n++ {
+	for n := 2; !free(id); n++ {
 		id = fmt.Sprintf("%s (%s %d)", e.Canonical, e.Pos, n)
 	}
 	p.last++

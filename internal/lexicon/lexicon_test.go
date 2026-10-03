@@ -21,7 +21,7 @@ func titles(entries []*Entry) []string {
 }
 
 func TestReadWhereKeepsOnlyChosenTitles(t *testing.T) {
-	entries, err := ReadWhere(strings.NewReader(dump), func(title string) bool { return title == "ماء" })
+	entries, err := ReadWhere(strings.NewReader(dump), func(title, canonical string) bool { return title == "ماء" })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,8 +44,34 @@ func TestReadIsReadWhereWithoutFilter(t *testing.T) {
 }
 
 func TestReadWhereReportsBrokenLines(t *testing.T) {
-	_, err := ReadWhere(strings.NewReader("{\"word\":\"ماء\"}\nnot json\n"), func(string) bool { return false })
+	_, err := ReadWhere(strings.NewReader("{\"word\":\"ماء\"}\nnot json\n"), func(string, string) bool { return false })
 	if err == nil || !strings.Contains(err.Error(), "line 2") {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+const odd = `{"word":"جامعة","pos":"noun","forms":[{"form":"الجَامِعَة","tags":["canonical"]}],"senses":[{"glosses":["university"]}]}
+{"word":"عفج","pos":"noun","forms":[{"form":"مَعْفُوج","tags":["canonical"]}],"senses":[{"glosses":["x"]}]}
+{"word":"كلب","pos":"noun","senses":[{"glosses":["dog"]}]}
+{"word":"قلم","pos":"noun","forms":[{"form":"qalam","tags":["romanization"]}],"senses":[{"glosses":["pen"]}]}
+`
+
+func TestReadWhereShowsTheFilterBothTheTitleAndTheCanonicalForm(t *testing.T) {
+	var seen []string
+	entries, err := ReadWhere(strings.NewReader(odd), func(title, canonical string) bool {
+		seen = append(seen, title+"|"+canonical)
+		return canonical == "مَعْفُوج" || title == "جامعة"
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"جامعة|الجَامِعَة", "عفج|مَعْفُوج", "كلب|كلب", "قلم|قلم"}; !slices.Equal(seen, want) {
+		t.Errorf("the filter saw %q, want %q", seen, want)
+	}
+	if got := titles(entries); !slices.Equal(got, []string{"جامعة/noun", "عفج/noun"}) {
+		t.Fatalf("entries = %v", got)
+	}
+	if entries[0].Canonical != "الجَامِعَة" || entries[1].Canonical != "مَعْفُوج" {
+		t.Errorf("entries were not converted as Read does: %+v %+v", entries[0], entries[1])
 	}
 }

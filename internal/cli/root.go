@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -103,9 +104,11 @@ func count(n int, one, many string) string {
 	return fmt.Sprintf("%d %s", n, many)
 }
 
+var progress io.Writer = os.Stderr
+
 func infof(format string, args ...any) {
 	if g.quiet {
 		return
 	}
-	fmt.Fprintf(os.Stderr, format, args...)
+	fmt.Fprintf(progress, format, args...)
 }

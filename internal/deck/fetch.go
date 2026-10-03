@@ -129,5 +129,8 @@ func Describe(s Source) string {
 	if i := strings.Index(host, "/"); i >= 0 {
 		host = host[:i]
 	}
+	if strings.Contains(s.Name, host) {
+		return s.Name
+	}
 	return fmt.Sprintf("%s (%s)", s.Name, host)
 }
