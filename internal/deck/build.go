@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -119,7 +120,7 @@ func WantsProduction(n notes.Note, limit int) bool {
 	return n.Position <= limit
 }
 
-func BuildPackage(ns []notes.Note, checks []notes.Check, opts BuildOptions) (*anki.Package, BuildSummary, error) {
+func BuildPackage(ns []notes.Note, checks, audio []notes.Check, opts BuildOptions) (*anki.Package, BuildSummary, error) {
 	if opts.ProductionLimit == 0 {
 		opts.ProductionLimit = 1000
 	}
@@ -129,6 +130,10 @@ func BuildPackage(ns []notes.Note, checks []notes.Check, opts BuildOptions) (*an
 	byID := map[string]notes.Check{}
 	for _, c := range checks {
 		byID[c.ID] = c
+	}
+	audioByID := map[string]notes.Check{}
+	for _, c := range audio {
+		audioByID[c.ID] = c
 	}
 	pkg := &anki.Package{
 		Deck: anki.Deck{
@@ -214,6 +219,14 @@ func BuildPackage(ns []notes.Note, checks []notes.Check, opts BuildOptions) (*an
 				tags = append(tags, "check::diacritics")
 			case minor:
 				tags = append(tags, "check::diacritics-minor")
+			}
+		}
+		if ac, ok := audioByID[n.ID]; ok && CurrentAudio(n, ac) {
+			for _, is := range OpenIssues(n, ac) {
+				if !slices.Contains(tags, "check::audio") {
+					tags = append(tags, "check::audio")
+				}
+				checkLines = append(checkLines, html.EscapeString(is.Detail))
 			}
 		}
 		if len(checkLines) > 0 {

@@ -51,9 +51,9 @@ because terminals cannot place Arabic vowel marks reliably and a browser can.
 The card is on the left, in the deck's own font; the flags are on the right;
 all flagged notes are listed down the side. Each flag says in plain words what
 disagreed: the card's vowels next to CATT's and CAMeL's readings with the
-differing letters highlighted, or the vowellings CAMeL knows for a word it
-rejects. Every action is a button, and has a key that also works with an
-Arabic keyboard layout:
+differing letters highlighted, the vowellings CAMeL knows for a word it
+rejects, or the clip that came back without any sound. Every action is a
+button, and has a key that also works with an Arabic keyboard layout:
 
 | Key | |
 | --- | --- |
@@ -69,8 +69,10 @@ Under the flags, every clip of the note — word, forms and sentence — has a
 **Remake** button that synthesizes it again with Google Text-to-Speech, exactly
 as `arabic-vocab audio` does, and a **Remove** button that deletes its MP3. A
 remade clip replaces the file the deck uses and plays at once: when the voice
-was unlucky and garbled a word, another try usually gets it right. A removed
-clip is made again by the next `audio` run.
+was unlucky and garbled a word, another try usually gets it right. It goes
+through the same checks as in `audio`, so a clip that comes back silent is
+asked for again, and the flag for a silent clip clears itself as soon as the
+new one has sound. A removed clip is made again by the next `audio` run.
 
 The same panel has the **voice**, picked from Google's ar-XA voices. Choosing
 another one writes it to `deck.json`, exactly as `audio --voice` does, so every
@@ -93,6 +95,7 @@ leave open become tags in the deck, with the details on the back of the card:
 | Tag | Meaning |
 | --- | --- |
 | `check::diacritics` | No independent source supports the vowels, CAMeL rejects them, or a vowel mark is missing. |
+| `check::audio` | A clip came back without any sound, however often it was asked for, so the card has no audio for it. |
 | `check::diacritics-minor` | CATT reads a word differently, but CAMeL agrees with the card. Usually CATT is wrong. |
 | `check::unverified` | The note needs a fresh `check`: it is new or changed, or was checked by an older version. |
 
@@ -100,6 +103,7 @@ leave open become tags in the deck, with the details on the back of the card:
 
 - Go 1.26 or newer
 - Python 3 (tested with 3.11), for `check` and `rank`
+- `ffmpeg`, to listen to the audio and cut the silence off it
 - A Google Cloud service account key with Text-to-Speech enabled, for audio
   (the same key [arabic-tts](https://github.com/scuba-plaza/arabic-tts) uses)
 - [Claude Code](https://claude.com/claude-code), logged in, for `add` and for
@@ -115,7 +119,7 @@ the BERT disambiguator, and CATT ships its model inside the package, so the
 first `check` needs no further downloads. Set `CAMELTOOLS_DATA` to keep the
 CAMeL data somewhere other than `~/.camel_tools`.
 
-On NixOS, run everything inside `nix-shell`. Besides Go and Python it
+On NixOS, run everything inside `nix-shell`. Besides Go, ffmpeg and Python it
 puts the C++ runtime and zlib on `LD_LIBRARY_PATH`, which the pip wheels for
 numpy, torch, onnxruntime and kenlm need; without it `check` fails with
 `libstdc++.so.6: cannot open shared object file`.
@@ -131,7 +135,7 @@ status    where the deck stands and what to run next
 add       add the next most common words, or the words you name, written by Claude Code
 check     cross-check every vowel with CAMeL and CATT
 review    go through flagged notes, or every note with --all
-audio     synthesize the audio
+audio     synthesize the audio and cut the silence off it
 build     write the Anki package
 voices    compare voices on words that differ only in their vowels
 rank      rank Wiktionary's words by frequency (the deck ships with a ranking)
@@ -222,6 +226,25 @@ while the card still shows the full sentence. When Google's per-minute quota
 runs out, `audio` waits and retries for about a minute; if it still fails, run
 it again, since finished clips are kept.
 
+Google's voices sometimes return a clip that is silent, or that has seconds of
+silence before or after the speech, so `audio` listens to every clip it makes:
+
+- Silence at the start or the end is cut off, leaving 0.1 s of it so that the
+  speech does not begin or end abruptly. The cut is lossless: the MP3 frames
+  are kept as they are, not encoded again. A side with less than 0.15 s of
+  silence is left as it is.
+- A clip with no sound at all is not kept, and is asked for again, up to three
+  more times. If it is still silent, the note is flagged: it gets the
+  `check::audio` tag, the clip is named on the back of the card, `status` sends
+  you to `review`, and `audio` prints the clip and exits with an error. The next
+  `audio` run asks for it again; in `review` the **Remake** button does the same.
+  The flags are kept in `audio-qa.jsonl` in `--cache`.
+- Clips made before they were listened to are checked on the first run, once;
+  the manifest remembers which ones have been.
+
+Sound means a stretch of at least 50 ms louder than −50 dBFS, so a click or a
+breath of noise does not count as speech.
+
 ### notes.jsonl
 
 `e` in `review` opens a note as JSON, and `notes.jsonl` can also be edited
@@ -306,6 +329,7 @@ internal/lexicon    kaikki reader, MSA sense filter, lemma grouping
 internal/tashkeel   vowel-mark normalisation, lemma keys, reading comparison
 internal/curate     writing notes with Claude Code: guide, schema, runner
 internal/review     the review page: session, local server, embedded web page
+internal/sound      finding the silence in a clip and cutting it off
 internal/notes      notes.jsonl, qa.jsonl and other JSONL records
 internal/anki       .apkg writer
 scripts             CAMeL Tools and CATT helpers

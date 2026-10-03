@@ -374,6 +374,8 @@ func describe(is notes.Issue, hl string) (string, []row, string) {
 		return "CAMeL does not know this word", []row{word("card", is.Word, nil)}, "Only Wiktionary vouches for its vowels, which is usually fine for less common words."
 	case "unchecked":
 		return "CATT could not be compared with this sentence", []row{}, "CATT split the sentence into different words, so its vowels were not compared. Read the sentence yourself."
+	case deck.KindSilent:
+		return "The clip has no sound", []row{}, is.Detail + " Remake it to try again; until a clip with sound exists the card plays nothing for it."
 	}
 	return is.Kind, []row{word("card", is.Word, nil)}, is.Detail
 }

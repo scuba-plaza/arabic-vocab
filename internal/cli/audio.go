@@ -13,6 +13,7 @@ import (
 
 	"github.com/scuba-plaza/arabic-vocab/internal/deck"
 	"github.com/scuba-plaza/arabic-vocab/internal/notes"
+	"github.com/scuba-plaza/arabic-vocab/internal/sound"
 )
 
 func newAudioCommand(paths *deck.Paths) *cobra.Command {
@@ -29,11 +30,20 @@ func newAudioCommand(paths *deck.Paths) *cobra.Command {
 			"hash of voice, rate and text, so running audio again only synthesizes what\n" +
 			"changed. Example sentences are spoken with a pausal ending, as a reader\n" +
 			"stops: the last word of each sentence drops its case vowel.\n\n" +
+			"Every clip is listened to for sound. Silence at the start or end is cut off,\n" +
+			"leaving a short pad. A clip that comes back with no sound at all is asked\n" +
+			"for again, up to three more times; if it stays silent it is not kept, the\n" +
+			"note is flagged for 'arabic-vocab review' and the next run tries it again.\n" +
+			"Clips made before this check are listened to once, on the first run.\n\n" +
 			"The voice and speaking rate come from deck.json in --deck-dir. --voice and\n" +
 			"--rate change them there, so later runs keep using them; compare voices\n" +
-			"with 'arabic-vocab voices'.",
+			"with 'arabic-vocab voices'.\n\n" +
+			"Needs ffmpeg.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := sound.Available(); err != nil {
+				return usagef("%v; ffmpeg is needed to cut the silence off the clips", err)
+			}
 			ns, err := loadNotes(paths.Notes())
 			if err != nil {
 				return err
@@ -70,7 +80,11 @@ func newAudioCommand(paths *deck.Paths) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			res, runErr := deck.GenerateAudio(ctx, ns, manifest, speak, deck.AudioOptions{
+			checks, err := notes.ReadJSONL[notes.Check](paths.AudioQA())
+			if err != nil {
+				return err
+			}
+			res, runErr := deck.GenerateAudio(ctx, ns, manifest, checks, speak, sound.Trim, deck.AudioOptions{
 				Voice:       settings.AudioVoice(),
 				MediaDir:    paths.Media(),
 				Concurrency: concurrency,
@@ -82,10 +96,18 @@ func newAudioCommand(paths *deck.Paths) *cobra.Command {
 				if err := notes.WriteJSONL(paths.Manifest(), res.Manifest); err != nil {
 					return err
 				}
+				if err := notes.WriteJSONL(paths.AudioQA(), res.Checks); err != nil {
+					return err
+				}
 			}
 			infof("\n")
 			if err := remember(res, runErr); err != nil {
 				return err
+			}
+			if res != nil {
+				for _, f := range res.Failed {
+					fmt.Fprintf(cmd.OutOrStdout(), "%d\t%s\t%s\t%v\n", f.Position, f.ID, deck.ClipLabel(f.Field), f.Err)
+				}
 			}
 			if runErr != nil {
 				if res != nil {
@@ -93,7 +115,14 @@ func newAudioCommand(paths *deck.Paths) *cobra.Command {
 				}
 				return runErr
 			}
-			infof("%d clips synthesized, %d already present\n", res.Synthesized, res.Reused)
+			summary := fmt.Sprintf("%d clips synthesized, %d already present", res.Synthesized, res.Reused)
+			if res.Trimmed > 0 {
+				summary += "; silence cut off " + count(res.Trimmed, "clip", "clips")
+			}
+			infof("%s\n", summary)
+			if len(res.Failed) > 0 {
+				return fmt.Errorf("%s had no sound in any of %d attempts; they are flagged for 'arabic-vocab review', and the next 'arabic-vocab audio' tries them again", count(len(res.Failed), "clip", "clips"), deck.DefaultClipAttempts)
+			}
 			infof("next: arabic-vocab build\n")
 			return nil
 		},

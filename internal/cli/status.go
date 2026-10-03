@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -42,6 +43,7 @@ type deckStatus struct {
 	minor      int
 	clips      int
 	missing    int
+	silent     int
 	pkg        string
 	pkgExists  bool
 	pkgStale   bool
@@ -54,6 +56,10 @@ func readStatus(paths *deck.Paths) (deckStatus, error) {
 		return s, err
 	}
 	checks, err := notes.ReadJSONL[notes.Check](paths.QA())
+	if err != nil {
+		return s, err
+	}
+	audioChecks, err := notes.ReadJSONL[notes.Check](paths.AudioQA())
 	if err != nil {
 		return s, err
 	}
@@ -70,7 +76,7 @@ func readStatus(paths *deck.Paths) (deckStatus, error) {
 	}
 	s.written = len(written)
 	s.checked = len(checks) > 0
-	items, stale := review.Items(written, checks, review.Filter{Minor: true})
+	items, stale := review.Items(written, checks, audioChecks, review.Filter{Minor: true})
 	s.unchecked = stale
 	for _, it := range items {
 		if it.Major() {
@@ -78,6 +84,16 @@ func readStatus(paths *deck.Paths) (deckStatus, error) {
 		} else {
 			s.minor++
 		}
+	}
+	audioByID := map[string]notes.Check{}
+	for _, c := range audioChecks {
+		audioByID[c.ID] = c
+	}
+	silent := func(n notes.Note, field string) bool {
+		c, ok := audioByID[n.ID]
+		return ok && deck.CurrentAudio(n, c) && slices.ContainsFunc(c.Issues, func(is notes.Issue) bool {
+			return is.Field == field && is.Kind == deck.KindSilent
+		})
 	}
 	voice := s.settings.AudioVoice().Key()
 	seen := map[string]bool{}
@@ -90,14 +106,18 @@ func readStatus(paths *deck.Paths) (deckStatus, error) {
 			seen[file] = true
 			s.clips++
 			if _, err := os.Stat(paths.MediaFile(file)); err != nil {
-				s.missing++
+				if silent(n, at.Field) {
+					s.silent++
+				} else {
+					s.missing++
+				}
 			}
 		}
 	}
 	s.pkg = paths.Package(deck.DeckFileName)
 	if st, err := os.Stat(s.pkg); err == nil {
 		s.pkgExists = true
-		s.pkgStale = st.ModTime().Before(newest(paths.Notes(), paths.QA(), paths.Manifest(), paths.Settings()))
+		s.pkgStale = st.ModTime().Before(newest(paths.Notes(), paths.QA(), paths.AudioQA(), paths.Manifest(), paths.Settings()))
 	}
 	return s, nil
 }
@@ -153,8 +173,14 @@ func (s deckStatus) print(w io.Writer, paths *deck.Paths) {
 		flags = count(s.minor, "note", "notes") + " with only minor flags, which are optional"
 	}
 	audio := fmt.Sprintf("all %s", count(s.clips, "clip", "clips"))
-	if s.missing > 0 {
+	switch {
+	case s.missing > 0:
 		audio = fmt.Sprintf("%d of %s missing", s.missing, count(s.clips, "clip", "clips"))
+	case s.silent > 0:
+		audio = fmt.Sprintf("%d of %s made", s.clips-s.silent, count(s.clips, "clip", "clips"))
+	}
+	if s.silent > 0 {
+		audio += "; " + count(s.silent, "clip", "clips") + " came back silent and wait for review"
 	}
 	build := s.pkg + " is up to date"
 	switch {

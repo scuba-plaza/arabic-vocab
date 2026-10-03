@@ -247,14 +247,24 @@ func (s *session) remake(i int, field string) (result, error) {
 	e.working = true
 	n, remake := clone(s.ns[e.Index]), s.opts.Remake
 	s.mu.Unlock()
-	err = remake(s.ctx, n, field)
+	problem, err := remake(s.ctx, n, field)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	e.working = false
 	if err != nil {
 		return result{}, err
 	}
-	return result{Message: "♪ Made the " + fieldName(field) + " audio of " + n.Arabic + " again; listen to it", Tone: "audio", Show: i}, nil
+	made := "♪ Made the " + fieldName(field) + " audio of " + n.Arabic + " again"
+	e.Issues = withoutClipIssue(e.Issues, field)
+	if problem != nil {
+		e.Issues = append(e.Issues, *problem)
+		return result{Message: made + ", but it came back without any sound; the card has no audio for it yet", Tone: "bad", Show: i}, nil
+	}
+	return result{Message: made + "; listen to it", Tone: "audio", Show: i}, nil
+}
+
+func withoutClipIssue(issues []notes.Issue, field string) []notes.Issue {
+	return slices.DeleteFunc(slices.Clone(issues), func(is notes.Issue) bool { return is.Field == field && is.Kind == deck.KindSilent })
 }
 
 func (s *session) setVoice(i int, name string) (result, error) {
@@ -309,6 +319,7 @@ func (s *session) removeClip(i int, field string) (result, error) {
 	if err := s.opts.Remove(n, field); err != nil {
 		return result{}, err
 	}
+	e.Issues = withoutClipIssue(e.Issues, field)
 	return result{Message: "♪ Removed the " + fieldName(field) + " audio of " + n.Arabic + "; 'Remake' or 'arabic-vocab audio' makes it again", Show: i}, nil
 }
 
