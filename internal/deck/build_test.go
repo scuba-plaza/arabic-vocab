@@ -73,7 +73,7 @@ func TestBuildTagsWordsOutsideTheRankingAsUnranked(t *testing.T) {
 	ranked, extra := note("كِتَاب", 1), note("قَلَم", 2)
 	ranked.Position, extra.Position = 500, UnrankedBase+1
 	extra.ID = "قَلَم"
-	pkg, _, err := BuildPackage([]notes.Note{ranked, extra}, nil, BuildOptions{MediaDir: t.TempDir()})
+	pkg, _, err := BuildPackage([]notes.Note{ranked, extra}, nil, nil, BuildOptions{MediaDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
