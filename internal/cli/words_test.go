@@ -34,6 +34,20 @@ func TestWordListSplitsDeduplicatesAndReadsFiles(t *testing.T) {
 	}
 }
 
+func TestWordListStripsByteOrderMarksAndDirectionMarks(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "words.txt")
+	if err := os.WriteFile(file, []byte(marks(0xFEFF)+"كتاب\n"+marks(0x200F)+"عين"+marks(0x200E)+"\n"+marks(0x200F)+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := wordList([]string{marks(0x202B) + "ماء" + marks(0x202C), marks(0x200F)}, file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"ماء", "كتاب", "عين"}; !slices.Equal(got, want) {
+		t.Fatalf("words = %q, want %q", got, want)
+	}
+}
+
 func TestWordListRejectsTextThatIsNotArabic(t *testing.T) {
 	_, err := wordList([]string{"كتاب", "book"}, "")
 	var usage usageError

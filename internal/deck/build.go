@@ -108,6 +108,9 @@ func formsHTML(n notes.Note) string {
 }
 
 func rankBucket(pos int) string {
+	if pos > UnrankedBase {
+		return "rank::unranked"
+	}
 	lo := (pos-1)/500*500 + 1
 	return fmt.Sprintf("rank::%04d-%04d", lo, lo+499)
 }

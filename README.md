@@ -20,8 +20,9 @@ example sentence for every word.
 - **Full tashkeel everywhere**: the headword, its forms (plural, present
   tense, masdar, feminine) and the example sentence including case endings.
 - **Audio** for the word, its forms and the example sentence.
-- **Tags**: `pos::noun`, `rank::0001-0500`, `cefr::A1`, and the `check::`
-  tags described below.
+- **Tags**: `pos::noun`, `rank::0001-0500` (`rank::unranked` for words added by
+  name from outside the ranking), `cefr::A1`, and the `check::` tags described
+  below.
 - **Stable note IDs**: importing a rebuilt package updates the notes in place
   and keeps your review history.
 
@@ -167,9 +168,12 @@ word's case or mood ending without a vowel mark, are sent back once with the
 reason.
 
 Usage counts towards your plan's limits, so add a few hundred words at a time.
-Every finished note is saved straight away: when a run stops at a usage limit,
-run `add` again once the limit resets, and the words that were not written come
-first. The token totals are printed at the end.
+Every finished note is saved straight away, into the notes file as it is at
+that moment, so edits you make meanwhile are kept. When a run stops at a usage
+limit, `add` prints the command that writes the rest; run it once the limit
+resets. For the ranked words that is plain `add`, which continues with the
+words that were not written. Words you named are saved only once written, so
+the command lists them again. The token totals are printed at the end.
 
 #### Adding specific words
 
@@ -190,14 +194,21 @@ as `1,3`, `a` for all of them, `s` to skip the word or `q` to stop without
 adding anything; Enter takes the first. Type the vowels (`عَيَّنَ`) to narrow
 the list; entries that are already in the deck are marked. The entry you chose
 is passed on to Claude Code, which writes the card for exactly that entry
-instead of the likeliest one. `--yes` never asks: it takes the first sense of
-every word.
+instead of the likeliest one, and a card for a different headword or a different
+kind of word (a verb for a noun, say) is sent back. A word the deck already has
+is left alone, even when its card was relabelled or renamed while it was
+written. A spelling is also found by its Wiktionary page title when the
+entry's headword is written differently, for example with the article.
+
+`--yes` never asks: it takes the first sense of every word, and it downloads the
+dump only for words the ranked list does not have. A blank argument such as
+`add ""` is an error, not a request for the next ranked words.
 
 The entries come from Wiktionary's Arabic dump, the file `rank` reads. The
 first time, `add` offers to download it (about 500 MB, into `deck-data/raw`);
-if you decline, only the ranked list is searched. Reading the dump takes a few
-seconds. Proper names and senses marked archaic, rare, classical or dialectal
-are left out, as everywhere in the deck.
+if you decline, or the download fails, only the ranked list is searched.
+Reading the dump takes a few seconds. Proper names and senses marked archaic,
+rare, classical or dialectal are left out, as everywhere in the deck.
 
 From there the new notes are like any others: they go through `check`,
 `review`, `audio` and `build`, and `status` names the next step. The main sense

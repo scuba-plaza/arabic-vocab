@@ -67,6 +67,22 @@ func TestBuildAddsProductionCardsUpToTheLimit(t *testing.T) {
 	}
 }
 
+func TestBuildTagsWordsOutsideTheRankingAsUnranked(t *testing.T) {
+	ranked, extra := note("كِتَاب", 1), note("قَلَم", 2)
+	ranked.Position, extra.Position = 500, UnrankedBase+1
+	extra.ID = "قَلَم"
+	pkg, _, err := BuildPackage([]notes.Note{ranked, extra}, nil, BuildOptions{MediaDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(pkg.Notes[0].Tags, "rank::0001-0500") {
+		t.Errorf("ranked tags %v", pkg.Notes[0].Tags)
+	}
+	if !slices.Contains(pkg.Notes[1].Tags, "rank::unranked") || slices.ContainsFunc(pkg.Notes[1].Tags, func(s string) bool { return strings.HasPrefix(s, "rank::1") }) {
+		t.Errorf("a word added by name outside the ranking should be tagged rank::unranked, got %v", pkg.Notes[1].Tags)
+	}
+}
+
 func TestMarkArabicWrapsRuns(t *testing.T) {
 	got := markArabic("(+ أَنْ + verb) & more")
 	if !strings.Contains(got, `<span class="ar" lang="ar" dir="rtl">أَنْ</span>`) || !strings.Contains(got, "&amp;") {

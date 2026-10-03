@@ -4,10 +4,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/scuba-plaza/arabic-vocab/internal/curate"
@@ -33,11 +39,25 @@ func TestMain(m *testing.M) {
 
 func fakeClaude(log string) {
 	prompt, _ := io.ReadAll(os.Stdin)
+	earlier := 0
+	if raw, err := os.ReadFile(log); err == nil {
+		earlier = strings.Count(string(raw), "\n=====\n")
+	}
 	for path, text := range map[string]string{log: string(prompt), log + ".args": strings.Join(os.Args[1:], "\n")} {
 		if f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644); err == nil {
 			f.WriteString(text + "\n=====\n")
 			f.Close()
 		}
+	}
+	if os.Getenv("FAKE_CLAUDE_DIE") != "" {
+		fmt.Fprintln(os.Stderr, "usage limit reached")
+		os.Exit(1)
+	}
+	skip := strings.Split(os.Getenv("FAKE_CLAUDE_SKIP"), ",")
+	switchPos := os.Getenv("FAKE_CLAUDE_SWITCH")
+	switchCalls, err := strconv.Atoi(os.Getenv("FAKE_CLAUDE_SWITCH_CALLS"))
+	if err != nil {
+		switchCalls = 1 << 30
 	}
 	var cards []curate.Card
 	lines := strings.Split(string(prompt), "\n")
@@ -48,6 +68,12 @@ func fakeClaude(log string) {
 		var c curate.Card
 		if err := json.Unmarshal([]byte(lines[i+1]), &c); err != nil {
 			continue
+		}
+		if slices.Contains(skip, c.Arabic) {
+			continue
+		}
+		if switchPos != "" && earlier < switchCalls {
+			c.Pos = switchPos
 		}
 		c.English = "stub " + c.Pos
 		c.Example = "<b>هٰذَا</b> كِتَابٌ جَدِيدٌ."
@@ -67,10 +93,43 @@ func fakeClaude(log string) {
 }
 
 type fixture struct {
-	t     *testing.T
-	paths *deck.Paths
-	exe   string
-	log   string
+	t      *testing.T
+	paths  *deck.Paths
+	exe    string
+	log    string
+	loud   bool
+	stdout string
+	info   string
+}
+
+func lexEntries(canonical, pos, gloss string) []*lexicon.Entry {
+	return []*lexicon.Entry{{Title: strings.Map(func(r rune) rune {
+		if r >= 0x064B && r <= 0x0652 {
+			return -1
+		}
+		return r
+	}, canonical), Pos: pos, Canonical: canonical, Senses: []lexicon.Sense{{Gloss: gloss, MSA: true}}}}
+}
+
+func serveDump(t *testing.T, status int, lines ...string) *atomic.Int32 {
+	t.Helper()
+	hits := &atomic.Int32{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits.Add(1)
+		if status != http.StatusOK {
+			http.Error(w, "the dump is down", status)
+			return
+		}
+		io.WriteString(w, strings.Join(lines, "\n")+"\n")
+	}))
+	t.Cleanup(srv.Close)
+	local := kaikki
+	kaikki = func(p deck.Paths) deck.Source {
+		src := local(p)
+		src.Name, src.URL = "Test dump", srv.URL+"/dump.jsonl"
+		return src
+	}
+	return hits
 }
 
 func newFixture(t *testing.T, existing ...notes.Note) *fixture {
@@ -86,17 +145,16 @@ func newFixture(t *testing.T, existing ...notes.Note) *fixture {
 		t.Fatal(err)
 	}
 	t.Setenv("FAKE_CLAUDE_LOG", f.log)
-	entry := func(canonical, pos, gloss string) []*lexicon.Entry {
-		return []*lexicon.Entry{{Title: strings.Map(func(r rune) rune {
-			if r >= 0x064B && r <= 0x0652 {
-				return -1
-			}
-			return r
-		}, canonical), Pos: pos, Canonical: canonical, Senses: []lexicon.Sense{{Gloss: gloss, MSA: true}}}}
+	local := kaikki
+	kaikki = func(p deck.Paths) deck.Source {
+		src := local(p)
+		src.URL = "http://127.0.0.1:1/unreachable"
+		return src
 	}
+	t.Cleanup(func() { kaikki = local })
 	records := []rank.Record{
-		{Rank: 1, ID: "كِتَاب", Entries: entry("كِتَاب", "noun", "book")},
-		{Rank: 3, ID: "عَيْن", Entries: entry("عَيْن", "noun", "eye (organ)")},
+		{Rank: 1, ID: "كِتَاب", Entries: lexEntries("كِتَاب", "noun", "book")},
+		{Rank: 3, ID: "عَيْن", Entries: lexEntries("عَيْن", "noun", "eye (organ)")},
 	}
 	if err := notes.WriteJSONL(f.paths.Lexicon(), records); err != nil {
 		t.Fatal(err)
@@ -119,15 +177,42 @@ func (f *fixture) dump(lines ...string) {
 	}
 }
 
+func (f *fixture) rank(extra ...rank.Record) {
+	f.t.Helper()
+	records, err := notes.ReadJSONL[rank.Record](f.paths.Lexicon())
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	if err := notes.WriteJSONL(f.paths.Lexicon(), append(records, extra...)); err != nil {
+		f.t.Fatal(err)
+	}
+}
+
 func (f *fixture) add(stdin string, args ...string) (string, error) {
+	f.t.Helper()
+	return f.addFrom(strings.NewReader(stdin), args...)
+}
+
+func (f *fixture) addFrom(stdin io.Reader, args ...string) (string, error) {
 	f.t.Helper()
 	root := newRootCommand()
 	var out, errs bytes.Buffer
 	root.SetOut(&out)
 	root.SetErr(&errs)
-	root.SetIn(strings.NewReader(stdin))
-	root.SetArgs(append([]string{"add", "-q", "--deck-dir", f.paths.Deck, "--cache", f.paths.Cache, "--claude", f.exe, "--concurrency", "1"}, args...))
+	root.SetIn(stdin)
+	base := []string{"add", "--deck-dir", f.paths.Deck, "--cache", f.paths.Cache, "--claude", f.exe, "--concurrency", "1"}
+	if !f.loud {
+		base = append(base, "-q")
+	}
+	root.SetArgs(append(base, args...))
+	var info bytes.Buffer
+	if f.loud {
+		saved := progress
+		progress = &info
+		defer func() { progress = saved }()
+	}
 	err := root.Execute()
+	f.stdout, f.info = out.String(), info.String()
 	return errs.String(), err
 }
 
@@ -385,5 +470,349 @@ func TestAddRejectsBadArguments(t *testing.T) {
 	}
 	if len(f.notes()) != 0 || f.prompts() != "" {
 		t.Errorf("nothing should happen: %+v", f.notes())
+	}
+}
+
+const (
+	dumpUniversity = `{"word":"جامعة","pos":"noun","forms":[{"form":"الجَامِعَة","tags":["canonical","feminine"]}],"senses":[{"glosses":["university"]}]}`
+	dumpOdd        = `{"word":"عفج","pos":"noun","forms":[{"form":"مَعْفُوج","tags":["canonical","masculine"]}],"senses":[{"glosses":["odd"]}]}`
+)
+
+func marks(codes ...rune) string {
+	return string(codes)
+}
+
+func written(id string, position int, arabic, pos string) notes.Note {
+	return notes.Note{ID: id, Position: position, Arabic: arabic, Pos: pos, English: "x", Example: "<b>كِتَابٌ</b>.", ExampleEn: "A book."}
+}
+
+func TestAddNeverLetsASecondarySenseTakeARankedWordsID(t *testing.T) {
+	f := newFixture(t)
+	f.rank(rank.Record{Rank: 7, ID: "مَا", Entries: append(lexEntries("مَا", "pron", "what"), lexEntries("مَا", "adv", "not")...)})
+	f.dump(dumpBook)
+	if _, err := f.add("2\n", "ما"); err != nil {
+		t.Fatal(err)
+	}
+	ns := f.notes()
+	if len(ns) != 1 || ns[0].ID != "مَا (adv)" || ns[0].Pos != "adv" || ns[0].Position != deck.UnrankedBase+1 {
+		t.Fatalf("notes = %+v", ns)
+	}
+	if _, err := f.add("", "-n", "3"); err != nil {
+		t.Fatal(err)
+	}
+	main := f.byID("مَا")
+	if main.Position != 7 || main.Pos != "pron" || !main.Authored() {
+		t.Errorf("the main sense must still be added later with its rank: %+v", main)
+	}
+	if len(f.notes()) != 4 {
+		t.Errorf("notes = %+v", f.notes())
+	}
+}
+
+func TestAddNamesTheCommandThatWritesTheWordsItCouldNotWrite(t *testing.T) {
+	f := newFixture(t)
+	f.dump(dumpBook)
+	t.Setenv("FAKE_CLAUDE_SKIP", "عَيْن")
+	_, err := f.add("", "كتاب", "عين")
+	if err == nil || !strings.Contains(err.Error(), "1 word could not be written; they are listed above, and running 'arabic-vocab add عين' tries them again") {
+		t.Fatalf("err = %v", err)
+	}
+	if !strings.Contains(f.stdout, "عَيْن") {
+		t.Errorf("the failed word should be listed:\n%s", f.stdout)
+	}
+	if ns := f.notes(); len(ns) != 1 || ns[0].ID != "كِتَاب" {
+		t.Fatalf("only the finished word is saved: %+v", ns)
+	}
+
+	t.Setenv("FAKE_CLAUDE_SKIP", "")
+	if _, err := f.add("", "عين"); err != nil {
+		t.Fatalf("the printed command should work: %v", err)
+	}
+	if ns := f.notes(); len(ns) != 2 || !ns[1].Authored() {
+		t.Errorf("notes = %+v", ns)
+	}
+}
+
+func TestAddNamesTheCommandWhenClaudeStopsEarly(t *testing.T) {
+	f := newFixture(t)
+	f.loud = true
+	f.dump(dumpBook)
+	t.Setenv("FAKE_CLAUDE_DIE", "1")
+	_, err := f.add("", "كتاب", "عين")
+	if err == nil || !strings.Contains(err.Error(), "usage limit reached") {
+		t.Fatalf("err = %v", err)
+	}
+	if !strings.Contains(f.info, "to write the rest, run: arabic-vocab add كتاب عين") {
+		t.Errorf("named words are never saved before they are written, so the hint must list them:\n%s", f.info)
+	}
+	if len(f.notes()) != 0 {
+		t.Errorf("notes = %+v", f.notes())
+	}
+}
+
+func TestResumeCommandListsTheUnwrittenWordsOnce(t *testing.T) {
+	ns := []notes.Note{
+		written("w", 1, "عَيْن", "noun"),
+		{ID: "a", Position: 2}, {ID: "b", Position: 3}, {ID: "c", Position: 4},
+	}
+	job := addJob{notes: ns, targets: []int{0, 1, 2, 3}, typed: map[string]string{"w": "عين", "a": "كتاب", "b": "كيف حالك", "c": "كتاب"}}
+	if got := job.resume(); got != `arabic-vocab add كتاب "كيف حالك"` {
+		t.Errorf("resume = %q", got)
+	}
+	if got := (addJob{notes: ns, targets: []int{1}}).resume(); got != "arabic-vocab add" {
+		t.Errorf("ranked words resume with plain add, got %q", got)
+	}
+}
+
+type editingReader struct {
+	r    io.Reader
+	edit func()
+	done bool
+}
+
+func (e *editingReader) Read(p []byte) (int, error) {
+	if !e.done {
+		e.done = true
+		e.edit()
+	}
+	return e.r.Read(p)
+}
+
+func TestAddKeepsEditsMadeToTheDeckWhileItWaitsForAnAnswer(t *testing.T) {
+	book := written("كِتَاب", 1, "كِتَاب", "noun")
+	f := newFixture(t, book)
+	f.dump(dumpEye, dumpAppoint)
+	in := &editingReader{r: strings.NewReader("1\n"), edit: func() {
+		ns := f.notes()
+		ns[0].English = "volume"
+		ns = append(ns, written("قَلَم", 2, "قَلَم", "noun"))
+		if err := notes.WriteJSONL(f.paths.Notes(), ns); err != nil {
+			t.Error(err)
+		}
+	}}
+	if _, err := f.addFrom(in, "عين"); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.byID("كِتَاب").English; got != "volume" {
+		t.Errorf("an edit made while add was waiting was overwritten: English = %q", got)
+	}
+	f.byID("قَلَم")
+	if eye := f.byID("عَيْن"); !eye.Authored() || eye.Position != 3 {
+		t.Errorf("eye = %+v", eye)
+	}
+	if len(f.notes()) != 3 {
+		t.Errorf("notes = %+v", f.notes())
+	}
+}
+
+func TestAddRefusesToSaveOverANoteAddedMeanwhileAtTheSamePosition(t *testing.T) {
+	f := newFixture(t)
+	f.dump(dumpEye, dumpAppoint)
+	in := &editingReader{r: strings.NewReader("1\n"), edit: func() {
+		if err := notes.WriteJSONL(f.paths.Notes(), []notes.Note{written("قَلَم", 3, "قَلَم", "noun")}); err != nil {
+			t.Error(err)
+		}
+	}}
+	_, err := f.addFrom(in, "عين")
+	if err == nil || !strings.Contains(err.Error(), "share position 3") {
+		t.Fatalf("err = %v", err)
+	}
+	if ns := f.notes(); len(ns) != 1 || ns[0].ID != "قَلَم" {
+		t.Errorf("the note that was added meanwhile must survive: %+v", ns)
+	}
+}
+
+func TestAddRejectsACardThatSwitchesTheEntry(t *testing.T) {
+	t.Run("a model that keeps switching", func(t *testing.T) {
+		f := newFixture(t)
+		f.dump(dumpEye, dumpAppoint)
+		t.Setenv("FAKE_CLAUDE_SWITCH", "verb")
+		_, err := f.add("1\n", "عين")
+		if err == nil || !strings.Contains(err.Error(), "1 word could not be written") {
+			t.Fatalf("err = %v", err)
+		}
+		if !strings.Contains(f.stdout, "the learner asked for the noun عَيْن, but the card is for a verb") {
+			t.Errorf("the failure should say why:\n%s", f.stdout)
+		}
+		if len(f.notes()) != 0 {
+			t.Errorf("a card for another entry must not be saved: %+v", f.notes())
+		}
+		if got := strings.Count(f.prompts(), "## Position"); got != 2 {
+			t.Errorf("the draft should be asked for twice, got %d", got)
+		}
+	})
+	t.Run("a model that corrects itself", func(t *testing.T) {
+		f := newFixture(t)
+		f.dump(dumpEye, dumpAppoint)
+		t.Setenv("FAKE_CLAUDE_SWITCH", "verb")
+		t.Setenv("FAKE_CLAUDE_SWITCH_CALLS", "1")
+		if _, err := f.add("1\n", "عين"); err != nil {
+			t.Fatal(err)
+		}
+		if n := f.byID("عَيْن"); n.Pos != "noun" || n.English != "stub noun" {
+			t.Errorf("note = %+v", n)
+		}
+		prompts := f.prompts()
+		if !strings.Contains(prompts, "A previous answer for this card was rejected: the learner asked for the noun عَيْن, but the card is for a verb") {
+			t.Errorf("the second request must say what was wrong:\n%s", prompts)
+		}
+	})
+	t.Run("ranked words may still be relabelled", func(t *testing.T) {
+		f := newFixture(t)
+		t.Setenv("FAKE_CLAUDE_SWITCH", "particle")
+		if _, err := f.add("", "-n", "1"); err != nil {
+			t.Fatal(err)
+		}
+		if n := f.byID("كِتَاب"); n.Pos != "particle" {
+			t.Errorf("curation may fix the part of speech of a ranked word: %+v", n)
+		}
+	})
+}
+
+func TestAddRecognisesAWordWhoseNoteWasRelabelledOrRenamed(t *testing.T) {
+	t.Run("part of speech changed", func(t *testing.T) {
+		f := newFixture(t, written("عَيْن", 3, "عَيْن", "adj"))
+		if _, err := f.add("", "--yes", "عين"); err != nil {
+			t.Fatal(err)
+		}
+		if f.prompts() != "" || len(f.notes()) != 1 {
+			t.Errorf("a second note was added: %+v", f.notes())
+		}
+	})
+	t.Run("headword changed", func(t *testing.T) {
+		f := newFixture(t, written("يُمْكِنُ", 50, "يُمْكِنُ", "verb"))
+		f.dump(dumpBook)
+		if _, err := f.add("", "يمكن"); err != nil {
+			t.Fatalf("a word the deck has is not an error: %v", err)
+		}
+		if f.prompts() != "" || len(f.notes()) != 1 {
+			t.Errorf("notes = %+v", f.notes())
+		}
+	})
+}
+
+func TestAddFindsEntriesWhoseTitleAndCanonicalFormDiffer(t *testing.T) {
+	f := newFixture(t)
+	f.dump(dumpUniversity, dumpOdd)
+	if _, err := f.add("", "جامعة", "معفوج"); err != nil {
+		t.Fatal(err)
+	}
+	ns := f.notes()
+	if len(ns) != 2 || ns[0].ID != "الجَامِعَة" || ns[0].Position != deck.UnrankedBase+1 || ns[1].ID != "مَعْفُوج" || ns[1].Position != deck.UnrankedBase+2 {
+		t.Fatalf("notes = %+v", ns)
+	}
+}
+
+func TestAddIgnoresInvisibleCharactersInWords(t *testing.T) {
+	f := newFixture(t)
+	f.dump(dumpEye, dumpAppoint, dumpBook)
+	list := filepath.Join(t.TempDir(), "words.txt")
+	body := marks(0xFEFF) + "كتاب\r\n" + marks(0x200F) + "عين" + marks(0x200E) + "\n"
+	if err := os.WriteFile(list, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.add("1\n", "--file", list); err != nil {
+		t.Fatal(err)
+	}
+	if ns := f.notes(); len(ns) != 2 || ns[0].ID != "كِتَاب" || ns[1].ID != "عَيْن" {
+		t.Errorf("notes = %+v", ns)
+	}
+}
+
+func TestAddRefusesBlankWordsInsteadOfAddingTheNextRankedOnes(t *testing.T) {
+	f := newFixture(t)
+	for _, blank := range []string{"", " ", ",", "،", marks(0xFEFF), marks(0x200F, 0x200E)} {
+		_, err := f.add("", blank)
+		var usage usageError
+		if !errors.As(err, &usage) || !strings.Contains(err.Error(), "the words to add are empty") {
+			t.Errorf("add %q: err = %v", blank, err)
+		}
+	}
+	if f.prompts() != "" || len(f.notes()) != 0 {
+		t.Errorf("nothing should have been added: %+v", f.notes())
+	}
+	f.dump(dumpBook)
+	if _, err := f.add("", "", "كتاب"); err != nil {
+		t.Fatalf("a blank next to a word is skipped: %v", err)
+	}
+	if ns := f.notes(); len(ns) != 1 || ns[0].ID != "كِتَاب" {
+		t.Errorf("notes = %+v", ns)
+	}
+}
+
+func TestAddWithYesDownloadsTheDumpOnlyForWordsTheRankingLacks(t *testing.T) {
+	t.Run("ranked words need no download", func(t *testing.T) {
+		f := newFixture(t)
+		hits := serveDump(t, http.StatusOK, dumpDog)
+		if _, err := f.add("", "--yes", "كتاب", "عين"); err != nil {
+			t.Fatal(err)
+		}
+		if hits.Load() != 0 {
+			t.Errorf("the dump was requested %d times", hits.Load())
+		}
+		if _, err := os.Stat(f.paths.Kaikki()); err == nil {
+			t.Error("the dump should not have been fetched")
+		}
+		if len(f.notes()) != 2 {
+			t.Errorf("notes = %+v", f.notes())
+		}
+	})
+	t.Run("a dump on disk is not read either", func(t *testing.T) {
+		f := newFixture(t)
+		f.dump("this is not json")
+		if _, err := f.add("", "--yes", "كتاب"); err != nil {
+			t.Fatalf("the dump should not have been read: %v", err)
+		}
+	})
+	t.Run("a missing word triggers one download", func(t *testing.T) {
+		f := newFixture(t)
+		hits := serveDump(t, http.StatusOK, dumpDog, dumpBook)
+		if _, err := f.add("", "--yes", "كتاب", "كلب"); err != nil {
+			t.Fatal(err)
+		}
+		if hits.Load() != 1 {
+			t.Errorf("the dump was requested %d times", hits.Load())
+		}
+		ns := f.notes()
+		if len(ns) != 2 || ns[0].ID != "كِتَاب" || ns[1].ID != "كَلْب" || ns[1].Position != deck.UnrankedBase+1 {
+			t.Errorf("notes = %+v", ns)
+		}
+	})
+	t.Run("a failed download leaves the ranked words and reports the others", func(t *testing.T) {
+		f := newFixture(t)
+		hits := serveDump(t, http.StatusInternalServerError)
+		stderr, err := f.add("", "--yes", "كتاب", "كلب")
+		if err == nil || !strings.Contains(err.Error(), "1 word could not be found and was not added: كلب") {
+			t.Fatalf("err = %v", err)
+		}
+		for _, want := range []string{"500", "using the ranked list only", "كلب: not in the ranked list, and the Wiktionary dump could not be downloaded"} {
+			if !strings.Contains(stderr, want) {
+				t.Errorf("stderr lacks %q:\n%s", want, stderr)
+			}
+		}
+		if hits.Load() != 1 {
+			t.Errorf("the dump was requested %d times", hits.Load())
+		}
+		if _, err := os.Stat(f.paths.Kaikki()); err == nil {
+			t.Error("a failed download must not leave a dump behind")
+		}
+		if ns := f.notes(); len(ns) != 1 || ns[0].ID != "كِتَاب" {
+			t.Errorf("notes = %+v", ns)
+		}
+	})
+}
+
+func TestAddDownloadsTheDumpWhenTheUserAgrees(t *testing.T) {
+	f := newFixture(t)
+	hits := serveDump(t, http.StatusOK, dumpDog)
+	stderr, err := f.add("y\n", "كلب")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stderr, "download it now? [y/N]") || hits.Load() != 1 {
+		t.Errorf("hits %d, stderr:\n%s", hits.Load(), stderr)
+	}
+	if ns := f.notes(); len(ns) != 1 || ns[0].ID != "كَلْب" {
+		t.Errorf("notes = %+v", ns)
 	}
 }
