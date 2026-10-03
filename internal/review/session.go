@@ -145,11 +145,6 @@ func (s *session) keep(i int) (result, error) {
 			n.Reviewed = append(n.Reviewed, key)
 		}
 	}
-	for _, a := range e.Audio {
-		if !slices.Contains(n.ReviewedAudio, a.File) {
-			n.ReviewedAudio = append(n.ReviewedAudio, a.File)
-		}
-	}
 	if err := s.record(i, kept, n); err != nil {
 		return result{}, err
 	}
@@ -252,48 +247,14 @@ func (s *session) remake(i int, field string) (result, error) {
 	e.working = true
 	n, remake := clone(s.ns[e.Index]), s.opts.Remake
 	s.mu.Unlock()
-	check, err := remake(s.ctx, n, field)
+	err = remake(s.ctx, n, field)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	e.working = false
 	if err != nil {
 		return result{}, err
 	}
-	made := "♪ Made the " + fieldName(field) + " audio of " + n.Arabic + " again"
-	if check == nil {
-		return result{Message: made + "; listen to it", Tone: "audio", Show: i}, nil
-	}
-	e.Audio = withCheck(e.Audio, *check)
-	if check.Match {
-		return result{Message: made + "; it transcribes back to the sentence now", Tone: "good", Show: i}, nil
-	}
-	return result{Message: made + "; " + heard(check.Transcript), Tone: "audio", Show: i}, nil
-}
-
-func heard(transcript string) string {
-	if transcript == "" {
-		return "speech recognition heard nothing"
-	}
-	return "speech recognition heard \"" + transcript + "\""
-}
-
-func withCheck(list []notes.AudioCheck, c notes.AudioCheck) []notes.AudioCheck {
-	out := make([]notes.AudioCheck, 0, len(list)+1)
-	seen := false
-	for _, a := range list {
-		if a.Field != c.Field {
-			out = append(out, a)
-			continue
-		}
-		seen = true
-		if !c.Match {
-			out = append(out, c)
-		}
-	}
-	if !seen && !c.Match {
-		out = append(out, c)
-	}
-	return out
+	return result{Message: "♪ Made the " + fieldName(field) + " audio of " + n.Arabic + " again; listen to it", Tone: "audio", Show: i}, nil
 }
 
 func (s *session) setVoice(i int, name string) (result, error) {
@@ -348,7 +309,6 @@ func (s *session) removeClip(i int, field string) (result, error) {
 	if err := s.opts.Remove(n, field); err != nil {
 		return result{}, err
 	}
-	e.Audio = slices.DeleteFunc(e.Audio, func(a notes.AudioCheck) bool { return a.Field == field })
 	return result{Message: "♪ Removed the " + fieldName(field) + " audio of " + n.Arabic + "; 'Remake' or 'arabic-vocab audio' makes it again", Show: i}, nil
 }
 
@@ -463,7 +423,6 @@ func (s *session) count() Summary {
 func clone(n notes.Note) notes.Note {
 	n.Forms = slices.Clone(n.Forms)
 	n.Reviewed = slices.Clone(n.Reviewed)
-	n.ReviewedAudio = slices.Clone(n.ReviewedAudio)
 	if n.Production != nil {
 		p := *n.Production
 		n.Production = &p

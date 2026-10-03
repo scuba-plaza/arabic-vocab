@@ -586,13 +586,6 @@ button {
   color: var(--warn);
 }
 
-.mark-audio {
-  color: var(--audio);
-  text-decoration: underline;
-  text-decoration-thickness: 2px;
-  text-underline-offset: 0.35em;
-}
-
 .change {
   background: var(--panel);
   border: 1px solid var(--line);

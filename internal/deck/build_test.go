@@ -17,7 +17,7 @@ func note(id string, pos int) notes.Note {
 
 func tagsOf(t *testing.T, ns []notes.Note, checks []notes.Check) map[string][]string {
 	t.Helper()
-	pkg, _, err := BuildPackage(ns, checks, nil, BuildOptions{ProductionLimit: 1, MediaDir: t.TempDir()})
+	pkg, _, err := BuildPackage(ns, checks, BuildOptions{ProductionLimit: 1, MediaDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +52,7 @@ func TestBuildAddsProductionCardsUpToTheLimit(t *testing.T) {
 	no := false
 	first, second, third := note("كِتَاب", 1), note("قَلَم", 2), note("بَيْت", 1)
 	third.ID, third.Position, third.Production = "بَاب", 3, &no
-	pkg, summary, err := BuildPackage([]notes.Note{first, second, third}, nil, nil, BuildOptions{ProductionLimit: 1, ProductionDelay: 5, MediaDir: t.TempDir()})
+	pkg, summary, err := BuildPackage([]notes.Note{first, second, third}, nil, BuildOptions{ProductionLimit: 1, ProductionDelay: 5, MediaDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}

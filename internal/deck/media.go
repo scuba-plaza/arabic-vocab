@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"slices"
 	"sync"
 
 	"golang.org/x/sync/errgroup"
@@ -30,22 +29,17 @@ type ManifestEntry struct {
 
 type Speaker func(ctx context.Context, text, path string) error
 
-type Listener func(ctx context.Context, path string) (string, error)
-
 type AudioOptions struct {
 	Voice       Voice
 	MediaDir    string
 	Concurrency int
-	Verify      bool
 	Progress    func(done, total int)
 }
 
 type AudioResult struct {
 	Manifest    []ManifestEntry
-	Checks      []notes.AudioCheck
 	Synthesized int
 	Reused      int
-	Mismatches  int
 }
 
 func AudioIndex(manifest []ManifestEntry) map[string]string {
@@ -56,7 +50,7 @@ func AudioIndex(manifest []ManifestEntry) map[string]string {
 	return out
 }
 
-func GenerateAudio(ctx context.Context, ns []notes.Note, previous []ManifestEntry, previousChecks []notes.AudioCheck, speak Speaker, listen Listener, opts AudioOptions) (*AudioResult, error) {
+func GenerateAudio(ctx context.Context, ns []notes.Note, previous []ManifestEntry, speak Speaker, opts AudioOptions) (*AudioResult, error) {
 	if opts.Concurrency <= 0 {
 		opts.Concurrency = 4
 	}
@@ -117,61 +111,6 @@ func GenerateAudio(ctx context.Context, ns []notes.Note, previous []ManifestEntr
 			return nil
 		})
 	}
-	if err := g.Wait(); err != nil {
-		res.Checks = mergeChecks(previousChecks, nil)
-		return res, err
-	}
-
-	if !opts.Verify || listen == nil {
-		res.Checks = previousChecks
-		return res, nil
-	}
-	checked := map[string]notes.AudioCheck{}
-	for _, c := range previousChecks {
-		checked[c.ID+"\x1f"+c.Text] = c
-	}
-	index := AudioIndex(res.Manifest)
-	for _, n := range ns {
-		if !n.Authored() {
-			continue
-		}
-		for _, at := range AudioTexts(n) {
-			if at.Field != "ExampleAudio" {
-				continue
-			}
-			file, ok := index[at.Text]
-			if !ok {
-				continue
-			}
-			c, ok := checked[n.ID+"\x1f"+at.Text]
-			if !ok || c.File != file {
-				transcript, err := listen(ctx, MediaPath(opts.MediaDir, file))
-				if err != nil {
-					res.Checks = mergeChecks(previousChecks, res.Checks)
-					return res, fmt.Errorf("transcribing %s: %w", file, err)
-				}
-				c = notes.AudioCheck{ID: n.ID, Field: at.Field, Text: at.Text, File: file, Transcript: transcript, Match: TranscriptMatches(at.Text, transcript)}
-			}
-			if !c.Match {
-				res.Mismatches++
-			}
-			res.Checks = append(res.Checks, c)
-		}
-	}
-	return res, nil
-}
-
-func mergeChecks(previous, fresh []notes.AudioCheck) []notes.AudioCheck {
-	key := func(c notes.AudioCheck) string { return c.ID + "\x1f" + c.Text }
-	seen := map[string]bool{}
-	for _, c := range fresh {
-		seen[key(c)] = true
-	}
-	out := slices.Clone(fresh)
-	for _, c := range previous {
-		if !seen[key(c)] {
-			out = append(out, c)
-		}
-	}
-	return out
+	err := g.Wait()
+	return res, err
 }

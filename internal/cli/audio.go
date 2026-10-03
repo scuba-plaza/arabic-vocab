@@ -7,7 +7,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/scuba-plaza/arabic-tts/audio"
 	"github.com/scuba-plaza/arabic-tts/config"
 	"github.com/scuba-plaza/arabic-tts/gcp"
 	"github.com/scuba-plaza/arabic-tts/tts"
@@ -21,11 +20,10 @@ func newAudioCommand(paths *deck.Paths) *cobra.Command {
 		voice       string
 		rate        float64
 		concurrency int
-		verify      bool
 	)
 	cmd := &cobra.Command{
 		Use:   "audio",
-		Short: "Synthesize the audio and check it with speech recognition",
+		Short: "Synthesize the audio",
 		Long: "Synthesize three clips per note (headword, forms, example sentence) from\n" +
 			"the fully vowelled text, as MP3 in --cache/media. Clips are named after a\n" +
 			"hash of voice, rate and text, so running audio again only synthesizes what\n" +
@@ -33,12 +31,7 @@ func newAudioCommand(paths *deck.Paths) *cobra.Command {
 			"stops: the last word of each sentence drops its case vowel.\n\n" +
 			"The voice and speaking rate come from deck.json in --deck-dir. --voice and\n" +
 			"--rate change them there, so later runs keep using them; compare voices\n" +
-			"with 'arabic-vocab voices'.\n\n" +
-			"With --verify (the default) every example clip is transcribed back with\n" +
-			"speech-to-text, and a transcript that does not match the sentence flags the\n" +
-			"note for 'arabic-vocab review', where you can listen to it. Transcripts\n" +
-			"carry no vowels, so this catches skipped, garbled or invented words, not\n" +
-			"wrong vowels.",
+			"with 'arabic-vocab voices'.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ns, err := loadNotes(paths.Notes())
@@ -63,11 +56,6 @@ func newAudioCommand(paths *deck.Paths) *cobra.Command {
 				infof("from now on the deck uses voice %s at rate %.2f (saved in %s)\n", settings.Voice, settings.Rate, paths.Settings())
 				return deck.SaveSettings(paths.Settings(), settings)
 			}
-			if verify {
-				if err := audio.Available(); err != nil {
-					return usagef("%v; ffmpeg is needed to verify audio, or pass --verify=false", err)
-				}
-			}
 			creds, err := resolve()
 			if err != nil {
 				return err
@@ -78,37 +66,20 @@ func newAudioCommand(paths *deck.Paths) *cobra.Command {
 				return err
 			}
 			defer ttsClient.Close()
-			var listen deck.Listener
-			if verify {
-				heard, speechClient, err := newListener(ctx, creds)
-				if err != nil {
-					return err
-				}
-				defer speechClient.Close()
-				listen = heard
-			}
 			manifest, err := notes.ReadJSONL[deck.ManifestEntry](paths.Manifest())
 			if err != nil {
 				return err
 			}
-			previous, err := notes.ReadJSONL[notes.AudioCheck](paths.AudioQA())
-			if err != nil {
-				return err
-			}
-			res, runErr := deck.GenerateAudio(ctx, ns, manifest, previous, speak, listen, deck.AudioOptions{
+			res, runErr := deck.GenerateAudio(ctx, ns, manifest, speak, deck.AudioOptions{
 				Voice:       settings.AudioVoice(),
 				MediaDir:    paths.Media(),
 				Concurrency: concurrency,
-				Verify:      verify,
 				Progress: func(done, total int) {
 					infof("\rsynthesized %d/%d", done, total)
 				},
 			})
 			if res != nil {
 				if err := notes.WriteJSONL(paths.Manifest(), res.Manifest); err != nil {
-					return err
-				}
-				if err := notes.WriteJSONL(paths.AudioQA(), res.Checks); err != nil {
 					return err
 				}
 			}
@@ -123,23 +94,6 @@ func newAudioCommand(paths *deck.Paths) *cobra.Command {
 				return runErr
 			}
 			infof("%d clips synthesized, %d already present\n", res.Synthesized, res.Reused)
-			if verify {
-				flagged := 0
-				index := deck.AudioIndex(res.Manifest)
-				byID := map[string][]notes.AudioCheck{}
-				for _, c := range res.Checks {
-					byID[c.ID] = append(byID[c.ID], c)
-				}
-				for _, n := range ns {
-					flagged += len(deck.OpenAudio(n, byID[n.ID], index))
-				}
-				if flagged > 0 {
-					infof("%s did not transcribe back to the sentence\n", count(flagged, "example clip", "example clips"))
-					infof("next: arabic-vocab review, to listen to them, then arabic-vocab build\n")
-					return nil
-				}
-				infof("every example clip transcribed back to its sentence\n")
-			}
 			infof("next: arabic-vocab build\n")
 			return nil
 		},
@@ -148,8 +102,7 @@ func newAudioCommand(paths *deck.Paths) *cobra.Command {
 	f.StringVar(&voice, "voice", "", "use this voice from now on and save it in deck.json")
 	f.Float64Var(&rate, "rate", 0, "use this speaking rate (0.25 to 2.0) from now on and save it in deck.json")
 	f.IntVar(&concurrency, "concurrency", 4, "parallel synthesis requests")
-	f.BoolVar(&verify, "verify", true, "transcribe example clips back and flag mismatches")
-	googleFlags(cmd, true)
+	googleFlags(cmd)
 	return cmd
 }
 
@@ -219,6 +172,6 @@ func newVoicesCommand(paths *deck.Paths) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&voices, "voices", "", "comma-separated voice names (default: a few per tier)")
 	cmd.Flags().Float64Var(&rate, "rate", deck.DefaultRate, "speaking rate")
-	googleFlags(cmd, false)
+	googleFlags(cmd)
 	return cmd
 }

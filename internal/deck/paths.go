@@ -16,7 +16,6 @@ func (p Paths) CamelLemmas() string          { return filepath.Join(p.Cache, "ca
 func (p Paths) Media() string                { return filepath.Join(p.Cache, "media") }
 func (p Paths) RankReport() string           { return filepath.Join(p.Cache, "rank-report.tsv") }
 func (p Paths) Manifest() string             { return filepath.Join(p.Media(), "manifest.jsonl") }
-func (p Paths) AudioQA() string              { return filepath.Join(p.Cache, "audio-qa.jsonl") }
 func (p Paths) Essentials() string           { return filepath.Join(p.Deck, "essentials.tsv") }
 func (p Paths) Overrides() string            { return filepath.Join(p.Deck, "overrides.tsv") }
 func (p Paths) Ranked() string               { return filepath.Join(p.Deck, "ranked.tsv") }

@@ -284,7 +284,6 @@ func Apply(n notes.Note, c Card) notes.Note {
 	n.ExampleEn = trim(c.ExampleEn)
 	n.Comment = trim(c.Comment)
 	n.Reviewed = nil
-	n.ReviewedAudio = nil
 	return n
 }
 

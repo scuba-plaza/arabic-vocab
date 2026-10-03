@@ -243,10 +243,10 @@ func TestValidate(t *testing.T) {
 }
 
 func TestApplySwitchingPartOfSpeech(t *testing.T) {
-	n := notes.Note{ID: "x", Position: 9, Arabic: "بَعْد", Pos: "noun", Gender: "m", Reviewed: []string{"بَعْدَ"}, ReviewedAudio: []string{"ar-0.mp3"}}
+	n := notes.Note{ID: "x", Position: 9, Arabic: "بَعْد", Pos: "noun", Gender: "m", Reviewed: []string{"بَعْدَ"}}
 	c := Card{Position: 9, Arabic: "بَعْدَ", Pos: "prep", English: "after", Example: "<b>بَعْدَ</b> الدَّرْسِ.", ExampleEn: "After the lesson.", Forms: []notes.Form{}}
 	got := Apply(n, c)
-	if got.Pos != "prep" || got.Arabic != "بَعْدَ" || got.Reviewed != nil || got.ReviewedAudio != nil || got.Forms != nil || got.ID != "x" || got.Position != 9 {
+	if got.Pos != "prep" || got.Arabic != "بَعْدَ" || got.Reviewed != nil || got.Forms != nil || got.ID != "x" || got.Position != 9 {
 		t.Fatalf("applied = %+v", got)
 	}
 	v := Apply(notes.Note{Pos: "noun", Gender: "f"}, Card{Pos: "verb"})
